@@ -1,5 +1,7 @@
+import json
 import os
 import sys
+from datetime import datetime
 
 import requests
 from flask import Flask, request
@@ -81,6 +83,38 @@ def send_message(chat_id, text):
     requests.post(f"{BASE}/sendMessage", json=payload, timeout=15)
 
 
+def pedidos_path():
+    return os.path.join(os.path.dirname(os.path.abspath(__file__)), "pedidos.json")
+
+
+def save_order(chat_id, username, text):
+    entry = {
+        "data": datetime.now().isoformat(timespec="seconds"),
+        "chat_id": chat_id,
+        "usuario": username,
+        "mensagem": text,
+    }
+    path = pedidos_path()
+    try:
+        with open(path, "r", encoding="utf-8") as f:
+            orders = json.load(f)
+        if not isinstance(orders, list):
+            orders = []
+    except Exception:
+        orders = []
+    orders.append(entry)
+    with open(path, "w", encoding="utf-8") as f:
+        json.dump(orders, f, ensure_ascii=False, indent=2)
+    return entry
+
+
+def looks_like_order(text):
+    lower = text.lower()
+    markers = ["quero", "vou querer", "queria comprar", "confirm", "pode fechar",
+               "comprar", "fechado", "vou levar", "vou pegar", "pedido", "to comprando"]
+    return any(marker in lower for marker in markers)
+
+
 app = Flask(__name__)
 
 
@@ -95,11 +129,48 @@ def webhook():
     message = update.get("message") or {}
     text = message.get("text")
     chat_id = message.get("chat", {}).get("id")
-    if text and chat_id:
-        print(f"[{chat_id}] {text}")
-        reply = ask_ai(text)
-        send_message(chat_id, reply)
+    chat_type = message.get("chat", {}).get("type")
+    username = message.get("from", {}).get("first_name") or message.get("from", {}).get("username") or str(chat_id)
+    if not text or not chat_id:
+        return "ok", 200
+
+    print(f"[{chat_id}] {text}")
+
+    if text.strip() == "/id":
+        send_message(chat_id, f"Seu chat_id é: {chat_id}")
+        return "ok", 200
+
+    if chat_type == "private" and looks_like_order(text):
+        entry = save_order(chat_id, username, text)
+        notify_owner(entry)
+
+    reply = ask_ai(text)
+    send_message(chat_id, reply)
     return "ok", 200
+
+
+@app.route("/pedidos", methods=["GET"])
+def pedidos():
+    try:
+        with open(pedidos_path(), "r", encoding="utf-8") as f:
+            data = json.load(f)
+    except Exception:
+        data = []
+    return f"{len(data)} pedido(s) registrado(s)", 200
+
+
+def notify_owner(entry):
+    owner_chat = load_env_key("TELEGRAM_OWNER_CHAT_ID")
+    if not owner_chat:
+        return
+    order_text = (
+        "🛒 NOVO PEDIDO\n"
+        f"Usuário: {entry['usuario']}\n"
+        f"ID: {entry['chat_id']}\n"
+        f"Quando: {entry['data']}\n"
+        f"Mensagem: {entry['mensagem']}"
+    )
+    send_message(owner_chat, order_text)
 
 
 def set_webhook(url):
