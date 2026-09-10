@@ -1,7 +1,7 @@
 # BAPZX Tibia Coins Bot — Memória do projeto
 
 Atendente IA de venda de Tibia Coins via Telegram (Flask webhook + Google Gemini).
-Versão atual do bot: **1.2.1**.
+Versão atual do bot: 1.2.1.
 
 ## Estrutura
 
@@ -22,7 +22,7 @@ Versão atual do bot: **1.2.1**.
 
 ## Decisões
 
-- Pedido detectado por palavras-chave em conversa privada; salvo de forma **estruturada** (TC, preço da tabela, pagamento, mundo, char) e dono notificado (mensagem "🛒 NOVO PEDIDO").
+- Pedido detectado por palavras-chave em conversa privada; salvo de forma estruturada (TC, preço da tabela, pagamento, mundo, char) e dono notificado (mensagem "🛒 NOVO PEDIDO").
 - Preços fixos na persona (100 a 2500 TC). Pagamento: Pix. Entrega: Trade in-game (pedir mundo e char).
 - Fallback de modelo IA: gemini-3.6-flash → gemini-3-flash-preview → gemini-3.5-flash.
 - Persistência: `OrderStore` usa Supabase (REST) como fonte de verdade quando `SUPABASE_URL`/`SUPABASE_KEY` estão setadas; falha/ausência cai para `pedidos.json` (local). Contagem (`/pedidos`) vem do Supabase via `Prefer: count=exact`, com fallback no arquivo.
@@ -37,16 +37,16 @@ Versão atual do bot: **1.2.1**.
 
 - v1.2.0 (estrutura + persistência): `quero comprar 1000 tc, pagamento pix, mundo pacera, char Nap Lord` → extrato `tc=1000, preco=R$90, pag=Pix, mundo=pacera, char=nap lord`; `quero comprar 250 tc` → `tc=250, preco=R$22,50`. Health exibe `bot ok v1.2.0`. Contagem `/pedidos` == 3.
 - v1.2.1 (fix de configuração): `SUPABASE_URL`/`SUPABASE_KEY` passados via `load_env_key` (antes só `os.environ`, então o Supabase nunca ativava no .env local). Pedido `quero comprar 500 tc, mundo pacera, char Nap Lord` gravado no Supabase com `tc=500, preco=R$45, mundo=pacera, char=nap lord`; `/pedidos` passou a contar do Supabase (2). Feito também o teste POST/GET/DELETE direto na REST API.
+- v1.2.1 no Render: após configurar as 5 Environment Variables no serviço, pedido via webhook do Render (`quero comprar 250 tc, mundo ferobra`) gravado no Supabase (id=3, tc=250, mundo=ferobra) — persistência em nuvem confirmada no deploy.
 
 ## Configuração Supabase (10/09/2026)
 
 - Projeto: `https://wtgzsurppwwrzhctnnfa.supabase.co` — tabela `public.pedidos` criada via SQL Editor.
-- Usar a **service role key legada (JWT)** — a `sb_secret_*` nova retornou 401 e a `sb_publishable_*` retornou 404. A JWT é a única funcionando com o REST.
-- `.env` local já configurado. FALTA configurar no Render (Environment Variables): `SUPABASE_URL`, `SUPABASE_KEY`.
+- Usar a service role key legada (JWT) — a `sb_secret_*` nova retornou 401 e a `sb_publishable_*` retornou 404. A JWT é a única funcionando com o REST.
+- `.env` local configurado. Render configurado (5 variáveis direto no serviço: TELEGRAM_BOT_TOKEN, TELEGRAM_OWNER_CHAT_ID, GOOGLE_API_KEY, SUPABASE_URL, SUPABASE_KEY) e validado com pedido real gravado no banco.
 
 ## Pendências
 
-- **Render**: adicionar `SUPABASE_URL` e `SUPABASE_KEY` (JWT) nas Environment Variables e testar pedido real no deploy (evita perda de pedidos no redeploy).
 - Rotacionar `TELEGRAM_BOT_TOKEN` (exposto no terminal durante sessão — gerar novo no BotFather e atualizar `.env` + Render).
 - Teste real end-to-end: enviar mensagem real do Telegram e validar resposta da IA + aviso ao dono.
 - Tratar pedido assíncrono: cliente informa mundo/char depois do valor (pedido parcial).
