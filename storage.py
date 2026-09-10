@@ -52,6 +52,29 @@ class OrderStore:
         with open(self.file_path, "w", encoding="utf-8") as f:
             json.dump(orders, f, ensure_ascii=False, indent=2)
 
+    def set_status(self, order_id, status, timestamp_field=None, timestamp=None):
+        if not self.remote:
+            print("[storage] set_status exige Supabase configurado")
+            return None
+        payload = {"status": status}
+        if timestamp_field and timestamp:
+            payload[timestamp_field] = timestamp
+        response = requests.patch(
+            f"{self.url}/rest/v1/{self.table}?id=eq.{order_id}",
+            headers=self._headers(),
+            json=payload,
+            timeout=15,
+        )
+        if response.status_code not in (200, 204):
+            raise RuntimeError(f"Supabase {response.status_code}: {response.text[:200]}")
+        return status
+
+    def find(self, order_id):
+        for order in self.list():
+            if order.get("id") == order_id:
+                return order
+        return None
+
     def list(self):
         if self.remote:
             try:

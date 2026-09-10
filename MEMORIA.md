@@ -2,14 +2,14 @@
 
 ## PROTOCOLO DE REENTRADA (atualizado no último check-out)
 
-- Onde paramos: v1.4.1 no ar; histórico do pedidos.json migrado para o Supabase (11 pedidos no banco) via scripts/migrar_pedidos.py; arquivo local esvaziado.
-- Próximo passo: FASE B — validar a venda de verdade (confirmar resposta da IA em atendimento real e definir fluxo de identificação de pagamento via Pix).
-- Arquivos tocados: bot.py, storage.py, MEMORIA.md, MEMORIA_COMPRA.md, MEMORIA_SEGURANCA.md, .env (token), scripts/migrar_pedidos.py, PROTOCOLO.md, ROADMAP-15DIAS.md, manual.txt, AGENTS.md.
+- Onde paramos: v1.5.0 no ar; fluxo de pagamento implementado — pedido nasce pendente, cliente recebe texto com chave Pix; /pago e /entregue atualizam status no banco; dashboard mostra faturado só de pagos + coluna status. Colunas novas (status, pix_confirmado_em, entregue_em) criadas no Supabase.
+- Próximo passo: validar fluxo completo em atendimento real (cliente -> pedido -> Pix -> /pago -> trade -> /entregue) e adicionar chave Pix (PIX_KEY) ao .env e ao Render.
+- Arquivos tocados: bot.py, storage.py, MEMORIA.md, scripts/migracao_status.sql.
 - Bloqueios: nenhum.
-- Dias restantes: 12 de 15.
+- Dias restantes: 11 de 15.
 
 Atendente IA de venda de Tibia Coins via Telegram (Flask webhook + Google Gemini).
-Versão atual do bot: 1.4.1.
+Versão atual do bot: 1.5.0.
 
 ## Leitura obrigatória antes de alterar (memórias do projeto)
 
@@ -59,6 +59,7 @@ Versão atual do bot: 1.4.1.
 - v1.4.0 (dashboard de vendas): rota GET /dashboard com faturado total, nº de pedidos, nº de clientes, pedidos dos últimos 14 dias (gráfico de barras) e tabela dos últimos 10 pedidos — dados reais do Supabase via novo método `OrderStore.list()` (paginação Range + fallback para arquivo). /pedidos agora aponta para /dashboard. Testado local: 5 pedidos, R$247,50, 1 cliente.
 - v1.4.1 (memoria de compra): criado MEMORIA_COMPRA.md com a regra de cálculo de preço (proporção 1.000 TC = R$ 90 — valor = quantidade x 90 / 1.000, passo a passo). Regra injetada no prompt da IA (calcula quantidades fora da tabela mostrando o cálculo) e aplicada no registro: novo `calc_price()` em bot.py (tabela fixa para 100/250/500/1.000/2.500; fórmula para o resto). Testado local: pedido de 600 TC gravou no Supabase id=7 com preco R$54,00; calc_price(800)=R$72,00, calc_price(1500)=R$135,00.
 - Migração do histórico (10/09): script `scripts/migrar_pedidos.py` insere no Supabase as linhas do `pedidos.json` ainda ausentes (dedupe por mensagem+chat_id) e esvazia o arquivo local ao concluir. Resultado: 5 inseridos (banco com 11 pedidos), pedidos do dia 09/09 preservados com data/chat/usuario originais.
+- v1.5.0 (fluxo de pagamento Pix): colunas `status`, `pix_confirmado_em` e `entregue_em` adicionadas ao Supabase via `scripts/migracao_status.sql`; pedido nasce com `status=pendente` e cliente recebe texto com valor + chave Pix (configurável via var `PIX_KEY` no .env/Render; sem chave o texto pede para usar /vendedor). Comandos `/pago <id>` e `/entregue <id>` no chat do dono (validação por chat_id), com aviso automático ao cliente em cada etapa; não-dono recebendo `/pago` é bloqueado. Dashboard: faturado contabiliza só pedidos com `status=pago` e agora tem card "Pagos" + coluna "Status" estilizada. Testado local: pedido id=13 (1500 tc, R$135, nisseus, antica) -> /pago -> status=pago (ts preenchido) -> /entregue -> status=entregue; dashboard exibe status e totais; não-dono bloqueado.
 
 ## Configuração Supabase (10/09/2026)
 

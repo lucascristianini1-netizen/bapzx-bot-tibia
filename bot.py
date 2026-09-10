@@ -9,7 +9,7 @@ from flask import Flask, request
 
 from storage import OrderStore
 
-VERSION = "1.4.1"
+VERSION = "1.5.0"
 
 if sys.platform == "win32":
     try:
@@ -43,6 +43,7 @@ if not TOKEN:
     sys.exit(1)
 
 BASE = f"https://api.telegram.org/bot{TOKEN}"
+PIX_KEY = load_env_key("PIX_KEY")
 MODELS = [
     "models/gemini-3.6-flash",
     "models/gemini-3-flash-preview",
@@ -191,6 +192,7 @@ def build_order(chat_id, username, text):
         "chat_id": chat_id,
         "usuario": username,
         "mensagem": text,
+        "status": "pendente",
     }
     entry.update(extract_order_details(text))
     return entry
@@ -198,6 +200,42 @@ def build_order(chat_id, username, text):
 
 def save_order(entry):
     return STORE.save(entry)
+
+
+def payment_text(entry):
+    linhas = ["PAGAMENTO DOS SEUS TIBIA COINS", ""]
+    linhas.append("Resumo do seu pedido:")
+    if entry.get("tc"):
+        linhas.append(f"  Tibia Coins: {entry['tc']}")
+    if entry.get("preco"):
+        linhas.append(f"  Valor: {entry['preco']}")
+    if entry.get("mundo"):
+        linhas.append(f"  Mundo: {entry['mundo']}")
+    if entry.get("char"):
+        linhas.append(f"  Char: {entry['char']}")
+    linhas.append("")
+    if PIX_KEY:
+        linhas.append(f"Para pagar via Pix, envie {entry.get('preco') or 'o valor'} para a chave Pix:")
+        linhas.append(f"  {PIX_KEY}")
+    else:
+        linhas.append("Para pagar via Pix, peça a chave Pix ao atendente com /vendedor.")
+    linhas.append("")
+    linhas.append("Depois de pagar, me avise aqui: paguei")
+    linhas.append("Quando o pagamento for confirmado, você recebe a confirmação aqui.")
+    return "\n".join(linhas)
+
+
+def notify_payment(entry):
+    send_message(entry["chat_id"], payment_text(entry))
+
+
+def apply_status(order_id, status, ts_field=None):
+    order = STORE.find(order_id)
+    if not order:
+        return "nao encontrado", None
+    now_iso = datetime.now().isoformat(timespec="seconds")
+    STORE.set_status(order_id, status, ts_field, now_iso)
+    return "ok", order
 
 
 def looks_like_order(text):
@@ -254,10 +292,51 @@ def webhook():
         reply_vendor(chat_id, username)
         return "ok", 200
 
+    if command in ("/pago", "/entregue"):
+        owner_chat = load_env_key("TELEGRAM_OWNER_CHAT_ID")
+        if str(chat_id) != str(owner_chat):
+            send_message(chat_id, "Comando indisponível. Se precisar, use /vendedor.")
+            return "ok", 200
+        parts = text.strip().split()
+        if len(parts) < 2:
+            send_message(chat_id, "Use o comando com o número do pedido. Ex.: /pago 12 ou /entregue 12")
+            return "ok", 200
+        try:
+            order_id = int(parts[1])
+        except ValueError:
+            send_message(chat_id, "O número do pedido deve ser numérico. Ex.: /pago 12")
+            return "ok", 200
+        if command == "/pago":
+            result, order = apply_status(order_id, "pago", "pix_confirmado_em")
+            if result == "nao encontrado":
+                send_message(chat_id, f"Não achei o pedido {order_id}.")
+                return "ok", 200
+            send_message(chat_id, f"Pedido {order_id} marcado como PAGO. Cliente avisado para combinar o trade.")
+            if order:
+                send_message(
+                    order["chat_id"],
+                    "Seu pagamento foi CONFIRMADO. O atendente vai te chamar aqui para combinar o trade.\n"
+                    "Preparado o char certo e on-line no horário combinado.",
+                )
+            return "ok", 200
+        if command == "/entregue":
+            result, order = apply_status(order_id, "entregue", "entregue_em")
+            if result == "nao encontrado":
+                send_message(chat_id, f"Não achei o pedido {order_id}.")
+                return "ok", 200
+            send_message(chat_id, f"Pedido {order_id} marcado como ENTREGUE. Cliente encerrado.")
+            if order:
+                send_message(
+                    order["chat_id"],
+                    "Tibia Coins entregues! Obrigado pela confiança e até a próxima. =)",
+                )
+            return "ok", 200
+
     if chat_type == "private" and looks_like_order(text):
         entry = build_order(chat_id, username, text)
         save_order(entry)
         notify_owner(entry)
+        notify_payment(entry)
 
     reply = ask_ai(text)
     send_message(chat_id, reply)
@@ -275,21 +354,24 @@ def dashboard_metrics(orders):
     faturado = 0.0
     por_dia = {}
     clientes = set()
+    pagos = 0
     for order in orders:
-        faturado += parse_brl(order.get("preco"))
+        if (order.get("status") or "pendente") == "pago":
+            faturado += parse_brl(order.get("preco"))
+            pagos += 1
         dia = (order.get("data") or "")[:10]
         if dia:
             por_dia[dia] = por_dia.get(dia, 0) + 1
         chat = order.get("chat_id")
         if chat is not None:
             clientes.add(chat)
-    return faturado, por_dia, clientes
+    return faturado, por_dia, clientes, pagos
 
 
 @app.route("/dashboard", methods=["GET"])
 def dashboard():
     orders = STORE.list()
-    faturado, por_dia, clientes = dashboard_metrics(orders)
+    faturado, por_dia, clientes, pagos = dashboard_metrics(orders)
 
     dias = []
     from datetime import timedelta
@@ -311,6 +393,7 @@ def dashboard():
     total_brl = f"R$ {faturado:,.2f}".replace(",", "X").replace(".", ",").replace("X", ".")
     rows = ""
     for order in sorted(orders, key=lambda o: (o.get("data") or ""), reverse=True)[:10]:
+        status = order.get("status") or "pendente"
         rows += (
             "<tr>"
             f"<td>{order.get('data') or '-'}</td>"
@@ -320,10 +403,11 @@ def dashboard():
             f"<td>{order.get('mundo') or '-'}</td>"
             f"<td>{order.get('pagamento') or '-'}</td>"
             f"<td>{order.get('usuario') or '-'}</td>"
+            f"<td><span class='status {status}'>{status}</span></td>"
             "</tr>"
         )
     if not rows:
-        rows = "<tr><td colspan='7' class='empty'>Nenhum pedido ainda</td></tr>"
+        rows = "<tr><td colspan='8' class='empty'>Nenhum pedido ainda</td></tr>"
     import html
     title = html.escape("BAPZX Tibia Coins - Dashboard")
 
@@ -353,19 +437,25 @@ table {{ width: 100%; border-collapse: collapse; font-size: 13px; }}
 th, td {{ text-align: left; padding: 7px 8px; border-bottom: 1px solid #334155; }}
 th {{ color: #94a3b8; font-weight: normal; }}
 .empty {{ text-align: center; color: #64748b; padding: 18px; }}
+.status {{ padding: 2px 8px; border-radius: 5px; font-size: 12px; font-weight: bold; }}
+.status.pendente {{ background: #78350f; color: #fbbf24; }}
+.status.pago {{ background: #064e3b; color: #4ade80; }}
+.status.entregue {{ background: #1e3a5f; color: #60a5fa; }}
+.status.cancelado {{ background: #7f1d1d; color: #f87171; }}
 </style>
 </head>
 <body>
 <header><h1>BAPZX Tibia Coins - Dashboard de vendas</h1></header>
 <main>
 <div class="cards">
-<div class="card"><div class="num">{total_brl}</div><div class="lbl">Faturado total</div></div>
+<div class="card"><div class="num">{total_brl}</div><div class="lbl">Faturado (pagos)</div></div>
+<div class="card"><div class="num">{pagos}</div><div class="lbl">Pagos</div></div>
 <div class="card"><div class="num">{len(orders)}</div><div class="lbl">Pedidos</div></div>
 <div class="card"><div class="num">{len(clientes)}</div><div class="lbl">Clientes</div></div>
 </div>
 <section><h2>Pedidos nos últimos 14 dias</h2>{''.join(bars)}</section>
 <section><h2>Últimos pedidos</h2>
-<table><tr><th>Quando</th><th>Char</th><th>Qtd</th><th>Valor</th><th>Mundo</th><th>Pagamento</th><th>Cliente</th></tr>{rows}</table>
+<table><tr><th>Quando</th><th>Char</th><th>Qtd</th><th>Valor</th><th>Mundo</th><th>Pagamento</th><th>Cliente</th><th>Status</th></tr>{rows}</table>
 </section>
 </main>
 </body>
@@ -395,6 +485,7 @@ def notify_owner(entry):
         lines.append(f"Mundo: {entry['mundo']}")
     if entry.get("char"):
         lines.append(f"Char: {entry['char']}")
+    lines.append(f"Status: {entry.get('status') or 'pendente'} (confirme com /pago + id)")
     lines.append(f"Quando: {entry['data']}")
     lines.append(f"Mensagem: {entry['mensagem']}")
     send_message(owner_chat, "\n".join(lines))
