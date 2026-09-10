@@ -9,7 +9,7 @@ from flask import Flask, request
 
 from storage import OrderStore
 
-VERSION = "1.3.0"
+VERSION = "1.3.1"
 
 if sys.platform == "win32":
     try:
@@ -62,7 +62,12 @@ HELP_TEXT = (
     "/vendedor - falar com um atendente humano\n"
     "/quemsomos - conhecer a loja\n"
     "/ajuda - mostrar esta lista de novo\n\n"
-    "Para comprar, é só me dizer, por exemplo: quero comprar 500 tc"
+    "PARA COMPRAR, me informe estes 4 dados:\n"
+    "1. Nome do char\n"
+    "2. Quantidade de Tibia Coins\n"
+    "3. Mundo\n"
+    "4. Forma de pagamento (Pix)\n\n"
+    "Exemplo: quero comprar 500 tc, mundo pacera, char Teste, pagamento pix"
 )
 
 ABOUT_TEXT = (
@@ -107,7 +112,9 @@ def ask_ai(text):
         f"TABELA DE PREÇOS OFICIAL (use EXATAMENTE estes valores, nunca outros):\n"
         f"{tabela}\n\n"
         "REGRAS DE RESPOSTA:\n"
-        "- Nunca use asteriscos (*), negrito ou marcação de texto. Responda em texto simples.\n\n"
+        "- Nunca use asteriscos (*), negrito ou marcação de texto. Responda em texto simples.\n"
+        "- Quando o cliente quiser comprar, peça/confirme os 4 dados obrigatórios:\n"
+        "  nome do char, quantidade de Tibia Coins, mundo e forma de pagamento (Pix).\n\n"
         f"Cliente: {text}"
     )
     last = None
