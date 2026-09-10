@@ -1,10 +1,15 @@
 import json
 import os
+import re
 import sys
 from datetime import datetime
 
 import requests
 from flask import Flask, request
+
+from storage import OrderStore
+
+VERSION = "1.2.0"
 
 if sys.platform == "win32":
     try:
@@ -43,6 +48,13 @@ MODELS = [
     "models/gemini-3-flash-preview",
     "models/gemini-3.5-flash",
 ]
+PRICES = {
+    100: "R$11,50",
+    250: "R$22,50",
+    500: "R$45",
+    1000: "R$90",
+    2500: "R$230",
+}
 
 
 def load_persona():
@@ -87,25 +99,47 @@ def pedidos_path():
     return os.path.join(os.path.dirname(os.path.abspath(__file__)), "pedidos.json")
 
 
-def save_order(chat_id, username, text):
+def parse_amount(text):
+    m = re.search(
+        r"(\d{1,4}(?:[.,]\d{3})?)\s*(?:tc\b|t\b|tibias?\b|tibia\s+coins?\b|coins?\b|mil\b)",
+        text,
+        re.IGNORECASE,
+    )
+    if not m:
+        return None
+    return int(m.group(1).replace(".", "").replace(",", ""))
+
+
+def extract_order_details(text, pagamento=None):
+    lower = text.lower()
+    tc = parse_amount(lower)
+    mundo = re.search(r"(?:mundo|world)\s*[:=]?\s*([a-z0-9]+)", lower)
+    char = re.search(
+        r"(?:char|personagem|nick|nome do char)\s*[:=]?\s*([a-z0-9]+(?:\s+[a-z0-9]+){0,3})",
+        lower,
+    )
+    return {
+        "tc": tc,
+        "preco": PRICES.get(tc) if tc else None,
+        "pagamento": pagamento or ("Pix" if "pix" in lower else None),
+        "mundo": mundo.group(1) if mundo else None,
+        "char": char.group(1).strip() if char else None,
+    }
+
+
+def build_order(chat_id, username, text):
     entry = {
         "data": datetime.now().isoformat(timespec="seconds"),
         "chat_id": chat_id,
         "usuario": username,
         "mensagem": text,
     }
-    path = pedidos_path()
-    try:
-        with open(path, "r", encoding="utf-8") as f:
-            orders = json.load(f)
-        if not isinstance(orders, list):
-            orders = []
-    except Exception:
-        orders = []
-    orders.append(entry)
-    with open(path, "w", encoding="utf-8") as f:
-        json.dump(orders, f, ensure_ascii=False, indent=2)
+    entry.update(extract_order_details(text))
     return entry
+
+
+def save_order(entry):
+    return STORE.save(entry)
 
 
 def looks_like_order(text):
@@ -116,11 +150,12 @@ def looks_like_order(text):
 
 
 app = Flask(__name__)
+STORE = OrderStore(pedidos_path())
 
 
 @app.route("/", methods=["GET"])
 def health():
-    return "bot ok", 200
+    return f"bot ok v{VERSION}", 200
 
 
 @app.route("/webhook", methods=["POST"])
@@ -141,7 +176,8 @@ def webhook():
         return "ok", 200
 
     if chat_type == "private" and looks_like_order(text):
-        entry = save_order(chat_id, username, text)
+        entry = build_order(chat_id, username, text)
+        save_order(entry)
         notify_owner(entry)
 
     reply = ask_ai(text)
@@ -151,26 +187,29 @@ def webhook():
 
 @app.route("/pedidos", methods=["GET"])
 def pedidos():
-    try:
-        with open(pedidos_path(), "r", encoding="utf-8") as f:
-            data = json.load(f)
-    except Exception:
-        data = []
-    return f"{len(data)} pedido(s) registrado(s)", 200
+    return f"{STORE.count()} pedido(s) registrado(s)", 200
 
 
 def notify_owner(entry):
     owner_chat = load_env_key("TELEGRAM_OWNER_CHAT_ID")
     if not owner_chat:
         return
-    order_text = (
-        "🛒 NOVO PEDIDO\n"
-        f"Usuário: {entry['usuario']}\n"
-        f"ID: {entry['chat_id']}\n"
-        f"Quando: {entry['data']}\n"
-        f"Mensagem: {entry['mensagem']}"
-    )
-    send_message(owner_chat, order_text)
+    lines = ["🛒 NOVO PEDIDO"]
+    lines.append(f"Usuário: {entry['usuario']}")
+    lines.append(f"ID: {entry['chat_id']}")
+    if entry.get("tc"):
+        lines.append(f"Tibia Coins: {entry['tc']}")
+    if entry.get("preco"):
+        lines.append(f"Preço: {entry['preco']}")
+    if entry.get("pagamento"):
+        lines.append(f"Pagamento: {entry['pagamento']}")
+    if entry.get("mundo"):
+        lines.append(f"Mundo: {entry['mundo']}")
+    if entry.get("char"):
+        lines.append(f"Char: {entry['char']}")
+    lines.append(f"Quando: {entry['data']}")
+    lines.append(f"Mensagem: {entry['mensagem']}")
+    send_message(owner_chat, "\n".join(lines))
 
 
 def set_webhook(url):
