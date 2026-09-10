@@ -57,10 +57,13 @@ Versão atual do bot: 1.4.1.
 - Usar a service role key legada (JWT) — a `sb_secret_*` nova retornou 401 e a `sb_publishable_*` retornou 404. A JWT é a única funcionando com o REST.
 - `.env` local configurado. Render configurado (5 variáveis direto no serviço: TELEGRAM_BOT_TOKEN, TELEGRAM_OWNER_CHAT_ID, GOOGLE_API_KEY, SUPABASE_URL, SUPABASE_KEY) e validado com pedido real gravado no banco.
 
+## Segurança
+
+- Token do bot rotacionado em 10/09 (via /revoke no BotFather): antigo revogado (401) e novo token aplicado no `.env` local, no Render (TELEGRAM_BOT_TOKEN) e no webhook (setWebhook → bapzx-bot-tibia.onrender.com/webhook). Teste end-to-end: /preco pelo webhook do Render respondeu 200 com a resposta entregue no chat do dono.
+- Nunca colocar senhas, tokens ou chaves de API no código, documentação ou backup (ver MEMORIA_SEGURANCA.md).
+
 ## Pendências
 
-- Rotacionar `TELEGRAM_BOT_TOKEN` (exposto no terminal durante sessão — gerar novo no BotFather e atualizar `.env` + Render).
-- Dashboard de vendas: rota web (ou mini página) com total faturado, pedidos por dia e clientes (dados do Supabase).
 - Migrar pedidos antigos do `pedidos.json` para o Supabase (histórico completo).
 - Tratar pedido assíncrono: cliente informa mundo/char depois do valor (pedido parcial).
 - Remover placeholders pendentes da persona, se houver.
