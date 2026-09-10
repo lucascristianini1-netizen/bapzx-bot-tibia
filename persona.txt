@@ -15,10 +15,11 @@ PRODUTOS E PREÇOS (tabela da loja):
 - Outros valores: [regra da loja, ex: sob consulta]
 
 FORMA DE PAGAMENTO:
-- [ex: Pix, cartão, cripto...]
+- Pix (confirmar chave com atendente humano)
 
 ENTREGA:
-- [ex: entrega na sua world/char, tempo médio, método...]
+- Trade in-game na sua world/char. Peça ao cliente o mundo e o nome do personagem.
+- Tempo médio de entrega: sob consulta com atendente humano.
 
 REGRA DE SEGURANÇA:
 - NUNCA peça senha do cliente. Tibia Coins é transferido via "Trade" do jogo (TC shop ou gift).
