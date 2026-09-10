@@ -1,5 +1,13 @@
 # BAPZX Tibia Coins Bot — Memória do projeto
 
+## PROTOCOLO DE REENTRADA (atualizado no último check-out)
+
+- Onde paramos: v1.4.1 no ar, token rotacionado, memórias (compra + segurança) criadas, protocolo de continuidade criado na raiz.
+- Próximo passo: migrar pedidos.json para o Supabase (histórico completo).
+- Arquivos tocados: bot.py, storage.py, MEMORIA.md, MEMORIA_COMPRA.md, MEMORIA_SEGURANCA.md, .env (token), PROTOCOLO.md, ROADMAP-15DIAS.md, manual.txt, AGENTS.md.
+- Bloqueios: nenhum.
+- Dias restantes: 13 de 15.
+
 Atendente IA de venda de Tibia Coins via Telegram (Flask webhook + Google Gemini).
 Versão atual do bot: 1.4.1.
 
