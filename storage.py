@@ -52,6 +52,40 @@ class OrderStore:
         with open(self.file_path, "w", encoding="utf-8") as f:
             json.dump(orders, f, ensure_ascii=False, indent=2)
 
+    def list(self):
+        if self.remote:
+            try:
+                orders = []
+                start = 0
+                while True:
+                    headers = {
+                        **self._headers(),
+                        "Range": f"{start}-{start + 999}",
+                    }
+                    response = requests.get(
+                        f"{self.url}/rest/v1/{self.table}?select=*&order=data.asc",
+                        headers=headers,
+                        timeout=20,
+                    )
+                    if response.status_code != 200:
+                        raise RuntimeError(f"Supabase {response.status_code}: {response.text[:200]}")
+                    rows = response.json()
+                    orders.extend(rows)
+                    if not rows or len(rows) < 1000:
+                        break
+                    start += len(rows)
+                return orders
+            except Exception as error:
+                print(f"[storage] Supabase indisponivel no list: {error}")
+        try:
+            with open(self.file_path, "r", encoding="utf-8") as f:
+                data = json.load(f)
+            if not isinstance(data, list):
+                return []
+            return data
+        except Exception:
+            return []
+
     def count(self):
         if self.remote:
             try:
