@@ -9,7 +9,7 @@ from flask import Flask, request
 
 from storage import OrderStore
 
-VERSION = "1.4.0"
+VERSION = "1.4.1"
 
 if sys.platform == "win32":
     try:
@@ -114,7 +114,12 @@ def ask_ai(text):
         "REGRAS DE RESPOSTA:\n"
         "- Nunca use asteriscos (*), negrito ou marcação de texto. Responda em texto simples.\n"
         "- Quando o cliente quiser comprar, peça/confirme os 4 dados obrigatórios:\n"
-        "  nome do char, quantidade de Tibia Coins, mundo e forma de pagamento (Pix).\n\n"
+        "  nome do char, quantidade de Tibia Coins, mundo e forma de pagamento (Pix).\n"
+        "- Para calcular o valor de uma quantidade de TC fora da tabela acima, use a "
+        "proporção de que 1.000 TC custam R$ 90: multiplique a quantidade por 90, divida "
+        "por 1.000 e mostre o cálculo passo a passo, terminando com o valor em Reais.\n"
+        "- Quantidades que estão na tabela (100, 250, 500, 1.000, 2.500 TC) usam o valor "
+        "da tabela, sem recálculo.\n\n"
         f"Cliente: {text}"
     )
     last = None
@@ -154,6 +159,15 @@ def parse_amount(text):
     return int(m.group(1).replace(".", "").replace(",", ""))
 
 
+def calc_price(tc):
+    if not tc:
+        return None
+    if tc in PRICES:
+        return PRICES[tc]
+    value = tc * 90 / 1000
+    return f"R${value:,.2f}".replace(",", "X").replace(".", ",").replace("X", ".")
+
+
 def extract_order_details(text, pagamento=None):
     lower = text.lower()
     tc = parse_amount(lower)
@@ -164,7 +178,7 @@ def extract_order_details(text, pagamento=None):
     )
     return {
         "tc": tc,
-        "preco": PRICES.get(tc) if tc else None,
+        "preco": calc_price(tc) if tc else None,
         "pagamento": pagamento or ("Pix" if "pix" in lower else None),
         "mundo": mundo.group(1) if mundo else None,
         "char": char.group(1).strip() if char else None,

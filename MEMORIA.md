@@ -1,7 +1,7 @@
 # BAPZX Tibia Coins Bot — Memória do projeto
 
 Atendente IA de venda de Tibia Coins via Telegram (Flask webhook + Google Gemini).
-Versão atual do bot: 1.4.0.
+Versão atual do bot: 1.4.1.
 
 ## Estrutura
 
@@ -42,6 +42,7 @@ Versão atual do bot: 1.4.0.
 - v1.3.0 (comandos + IA reforçada): testados local `/start`, `/preco`, `/quemsomos`, `/vendedor`, `/help` (respostas enviadas ao chat do dono em teste) e pedido `quero comprar 1000 tc, pix, mundo antica, char Rei Leao` → Supabase id=6 (tc=1000, preco=R$90, pag=Pix, mundo=antica, char=rei leao). IA reforçada: tabela oficial injetada no prompt e respostas limpas sem asteriscos.
 - v1.3.1 (texto do pedido): ajuda e regra da IA agora deixam claro os 4 dados obrigatórios para comprar — nome do char, quantidade de TC, mundo e forma de pagamento (Pix). Exemplo no /start. Testado local (200 ok).
 - v1.4.0 (dashboard de vendas): rota GET /dashboard com faturado total, nº de pedidos, nº de clientes, pedidos dos últimos 14 dias (gráfico de barras) e tabela dos últimos 10 pedidos — dados reais do Supabase via novo método `OrderStore.list()` (paginação Range + fallback para arquivo). /pedidos agora aponta para /dashboard. Testado local: 5 pedidos, R$247,50, 1 cliente.
+- v1.4.1 (memoria de compra): criado MEMORIA_COMPRA.md com a regra de cálculo de preço (proporção 1.000 TC = R$ 90 — valor = quantidade x 90 / 1.000, passo a passo). Regra injetada no prompt da IA (calcula quantidades fora da tabela mostrando o cálculo) e aplicada no registro: novo `calc_price()` em bot.py (tabela fixa para 100/250/500/1.000/2.500; fórmula para o resto). Testado local: pedido de 600 TC gravou no Supabase id=7 com preco R$54,00; calc_price(800)=R$72,00, calc_price(1500)=R$135,00.
 
 ## Configuração Supabase (10/09/2026)
 
