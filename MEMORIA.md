@@ -3,6 +3,13 @@
 Atendente IA de venda de Tibia Coins via Telegram (Flask webhook + Google Gemini).
 Versão atual do bot: 1.4.1.
 
+## Leitura obrigatória antes de alterar (memórias do projeto)
+
+- `MEMORIA.md` (este arquivo) — decisões e histórico.
+- `MEMORIA_COMPRA.md` — regra de cálculo de preço (1.000 TC = R$ 90).
+- `MEMORIA_SEGURANCA.md` — regra de segurança absoluta: confidencialidade
+  de código, dados e métricas; leitura obrigatória em toda sessão.
+
 ## Estrutura
 
 - `bot.py` — webhook Flask: `/` (health, informa versão), `/webhook` (mensagens), `/pedidos` (contagem), comandos `/id`.
