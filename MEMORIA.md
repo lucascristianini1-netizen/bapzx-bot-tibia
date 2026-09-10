@@ -1,7 +1,7 @@
 # BAPZX Tibia Coins Bot — Memória do projeto
 
 Atendente IA de venda de Tibia Coins via Telegram (Flask webhook + Google Gemini).
-Versão atual do bot: 1.2.1.
+Versão atual do bot: 1.3.0.
 
 ## Estrutura
 
@@ -39,6 +39,7 @@ Versão atual do bot: 1.2.1.
 - v1.2.1 (fix de configuração): `SUPABASE_URL`/`SUPABASE_KEY` passados via `load_env_key` (antes só `os.environ`, então o Supabase nunca ativava no .env local). Pedido `quero comprar 500 tc, mundo pacera, char Nap Lord` gravado no Supabase com `tc=500, preco=R$45, mundo=pacera, char=nap lord`; `/pedidos` passou a contar do Supabase (2). Feito também o teste POST/GET/DELETE direto na REST API.
 - v1.2.1 no Render: após configurar as 5 Environment Variables no serviço, pedido via webhook do Render (`quero comprar 250 tc, mundo ferobra`) gravado no Supabase (id=3, tc=250, mundo=ferobra) — persistência em nuvem confirmada no deploy.
 - **Teste real end-to-end (10/09)**: mensagem enviada de dentro do Telegram (`quero comprar 500 tc, mundo pacera, char Teste Real`) → webhook → gravado no Supabase id=5 com `tc=500, preco=R$45, mundo=pacera, char=teste real`, chat 1695600926 (Lucas). `/id` respondeu pelo webhook. Durante o teste, `GOOGLE_API_KEY` estava incorreta no Render (erro 400 API_KEY_INVALID); corrigida para a chave correta do `gemini-cli/.env` (formato `AQ.` — validada, 50 modelos acessíveis). Parser validado com 5 mensagens de amostra.
+- v1.3.0 (comandos + IA reforçada): testados local `/start`, `/preco`, `/quemsomos`, `/vendedor`, `/help` (respostas enviadas ao chat do dono em teste) e pedido `quero comprar 1000 tc, pix, mundo antica, char Rei Leao` → Supabase id=6 (tc=1000, preco=R$90, pag=Pix, mundo=antica, char=rei leao). IA reforçada: tabela oficial injetada no prompt e respostas limpas sem asteriscos.
 
 ## Configuração Supabase (10/09/2026)
 
@@ -49,6 +50,8 @@ Versão atual do bot: 1.2.1.
 ## Pendências
 
 - Rotacionar `TELEGRAM_BOT_TOKEN` (exposto no terminal durante sessão — gerar novo no BotFather e atualizar `.env` + Render).
+- Dashboard de vendas: rota web (ou mini página) com total faturado, pedidos por dia e clientes (dados do Supabase).
+- Migrar pedidos antigos do `pedidos.json` para o Supabase (histórico completo).
 - Tratar pedido assíncrono: cliente informa mundo/char depois do valor (pedido parcial).
 - Remover placeholders pendentes da persona, se houver.
 - Confirmar visualmente a resposta da IA em atendimento real (no teste, o pedido gravou correto; a resposta da IA precisa ser conferida no chat após a correção da chave).

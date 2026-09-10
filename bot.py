@@ -9,7 +9,7 @@ from flask import Flask, request
 
 from storage import OrderStore
 
-VERSION = "1.2.1"
+VERSION = "1.3.0"
 
 if sys.platform == "win32":
     try:
@@ -56,6 +56,30 @@ PRICES = {
     2500: "R$230",
 }
 
+HELP_TEXT = (
+    "Olá! Eu sou o atendente da BAPZX Tibia Coins. Veja o que posso fazer:\n\n"
+    "/preco - tabela de preços\n"
+    "/vendedor - falar com um atendente humano\n"
+    "/quemsomos - conhecer a loja\n"
+    "/ajuda - mostrar esta lista de novo\n\n"
+    "Para comprar, é só me dizer, por exemplo: quero comprar 500 tc"
+)
+
+ABOUT_TEXT = (
+    "BAPZX Tibia Coins vende Tibia Coins de forma rápida e segura.\n"
+    "Pagamento via Pix e entrega por Trade in-game na sua world/char.\n"
+    "Use /preco para ver a tabela, /vendedor para falar com um atendente "
+    "humano e /ajuda para rever as opções."
+)
+
+
+def price_table_text():
+    lines = ["TABELA DE PREÇOS - BAPZX Tibia Coins"]
+    for value, price in PRICES.items():
+        lines.append(f"  {value} TC - {price}")
+    lines.append("\nPagamento: Pix. Entrega: Trade in-game.")
+    return "\n".join(lines)
+
 
 def load_persona():
     path = os.path.join(os.path.dirname(os.path.abspath(__file__)), "persona.txt")
@@ -65,6 +89,10 @@ def load_persona():
     return "Você é um assistente de atendimento em português do Brasil."
 
 
+def clean_ai_text(text):
+    return (text or "").replace("*", "").replace("```", "").replace("`", "").strip()
+
+
 def ask_ai(text):
     from google import genai
 
@@ -72,13 +100,22 @@ def ask_ai(text):
     if not key:
         return "IA nao configurada (sem GOOGLE_API_KEY)."
     client = genai.Client(api_key=key)
-    prompt = f"{load_persona()}\n\nCliente: {text}"
+    persona = load_persona()
+    tabela = price_table_text()
+    prompt = (
+        f"{persona}\n\n"
+        f"TABELA DE PREÇOS OFICIAL (use EXATAMENTE estes valores, nunca outros):\n"
+        f"{tabela}\n\n"
+        "REGRAS DE RESPOSTA:\n"
+        "- Nunca use asteriscos (*), negrito ou marcação de texto. Responda em texto simples.\n\n"
+        f"Cliente: {text}"
+    )
     last = None
     for attempt in range(2):
         for model in MODELS:
             try:
                 response = client.models.generate_content(model=model, contents=prompt)
-                return response.text or "(sem resposta)"
+                return clean_ai_text(response.text)
             except Exception as error:
                 last = error
                 code = getattr(getattr(error, "error", None), "code", None) or getattr(error, "code", None)
@@ -179,6 +216,23 @@ def webhook():
         send_message(chat_id, f"Seu chat_id é: {chat_id}")
         return "ok", 200
 
+    command = text.strip().lower().split(" ", 1)[0]
+    if command in ("/start", "/inicio", "/ajuda", "/help"):
+        send_message(chat_id, HELP_TEXT)
+        return "ok", 200
+
+    if command == "/preco":
+        send_message(chat_id, price_table_text())
+        return "ok", 200
+
+    if command == "/quemsomos":
+        send_message(chat_id, ABOUT_TEXT)
+        return "ok", 200
+
+    if command == "/vendedor":
+        reply_vendor(chat_id, username)
+        return "ok", 200
+
     if chat_type == "private" and looks_like_order(text):
         entry = build_order(chat_id, username, text)
         save_order(entry)
@@ -214,6 +268,23 @@ def notify_owner(entry):
     lines.append(f"Quando: {entry['data']}")
     lines.append(f"Mensagem: {entry['mensagem']}")
     send_message(owner_chat, "\n".join(lines))
+
+
+def reply_vendor(chat_id, username):
+    owner_chat = load_env_key("TELEGRAM_OWNER_CHAT_ID")
+    send_message(
+        chat_id,
+        "Você foi encaminhado a um atendente humano. Ele vai te chamar aqui "
+        "em instantes. Fique on-line e me diga se a demora passar de alguns minutos.",
+    )
+    if owner_chat:
+        send_message(
+            owner_chat,
+            "🙋 CLIENTE SOLICITOU ATENDENTE HUMANO\n"
+            f"Usuário: {username}\n"
+            f"ID: {chat_id}\n"
+            "Responda este chat iniciando a conversa com o cliente.",
+        )
 
 
 def set_webhook(url):
