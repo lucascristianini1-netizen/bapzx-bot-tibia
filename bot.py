@@ -9,7 +9,7 @@ from flask import Flask, request
 
 from storage import OrderStore
 
-VERSION = "1.2.0"
+VERSION = "1.2.1"
 
 if sys.platform == "win32":
     try:
@@ -150,7 +150,11 @@ def looks_like_order(text):
 
 
 app = Flask(__name__)
-STORE = OrderStore(pedidos_path())
+STORE = OrderStore(
+    pedidos_path(),
+    url=load_env_key("SUPABASE_URL"),
+    key=load_env_key("SUPABASE_KEY"),
+)
 
 
 @app.route("/", methods=["GET"])

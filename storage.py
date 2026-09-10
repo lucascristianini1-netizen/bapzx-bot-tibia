@@ -5,10 +5,10 @@ import requests
 
 
 class OrderStore:
-    def __init__(self, file_path):
+    def __init__(self, file_path, url=None, key=None):
         self.file_path = file_path
-        self.url = (os.environ.get("SUPABASE_URL") or "").strip().rstrip("/")
-        self.key = (os.environ.get("SUPABASE_KEY") or "").strip()
+        self.url = (url or os.environ.get("SUPABASE_URL") or "").strip().rstrip("/")
+        self.key = (key or os.environ.get("SUPABASE_KEY") or "").strip()
         self.table = "pedidos"
 
     @property

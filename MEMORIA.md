@@ -1,7 +1,7 @@
 # BAPZX Tibia Coins Bot — Memória do projeto
 
 Atendente IA de venda de Tibia Coins via Telegram (Flask webhook + Google Gemini).
-Versão atual do bot: **1.2.0**.
+Versão atual do bot: **1.2.1**.
 
 ## Estrutura
 
@@ -36,10 +36,17 @@ Versão atual do bot: **1.2.0**.
 ## Testes feitos (10/09/2026)
 
 - v1.2.0 (estrutura + persistência): `quero comprar 1000 tc, pagamento pix, mundo pacera, char Nap Lord` → extrato `tc=1000, preco=R$90, pag=Pix, mundo=pacera, char=nap lord`; `quero comprar 250 tc` → `tc=250, preco=R$22,50`. Health exibe `bot ok v1.2.0`. Contagem `/pedidos` == 3.
+- v1.2.1 (fix de configuração): `SUPABASE_URL`/`SUPABASE_KEY` passados via `load_env_key` (antes só `os.environ`, então o Supabase nunca ativava no .env local). Pedido `quero comprar 500 tc, mundo pacera, char Nap Lord` gravado no Supabase com `tc=500, preco=R$45, mundo=pacera, char=nap lord`; `/pedidos` passou a contar do Supabase (2). Feito também o teste POST/GET/DELETE direto na REST API.
+
+## Configuração Supabase (10/09/2026)
+
+- Projeto: `https://wtgzsurppwwrzhctnnfa.supabase.co` — tabela `public.pedidos` criada via SQL Editor.
+- Usar a **service role key legada (JWT)** — a `sb_secret_*` nova retornou 401 e a `sb_publishable_*` retornou 404. A JWT é a única funcionando com o REST.
+- `.env` local já configurado. FALTA configurar no Render (Environment Variables): `SUPABASE_URL`, `SUPABASE_KEY`.
 
 ## Pendências
 
-- **Supabase**: criar projeto, rodar `scripts/criar_tabela_supabase.sql`, preencher `SUPABASE_URL`/`SUPABASE_KEY` no `.env` local e no Render, e testar no deploy.
+- **Render**: adicionar `SUPABASE_URL` e `SUPABASE_KEY` (JWT) nas Environment Variables e testar pedido real no deploy (evita perda de pedidos no redeploy).
 - Rotacionar `TELEGRAM_BOT_TOKEN` (exposto no terminal durante sessão — gerar novo no BotFather e atualizar `.env` + Render).
 - Teste real end-to-end: enviar mensagem real do Telegram e validar resposta da IA + aviso ao dono.
 - Tratar pedido assíncrono: cliente informa mundo/char depois do valor (pedido parcial).
