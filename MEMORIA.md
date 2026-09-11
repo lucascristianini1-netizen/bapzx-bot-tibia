@@ -1,6 +1,6 @@
 ﻿# BAPZX Tibia Coins Bot â€” MemÃ³ria do projeto
 
-- Onde paramos (11/09, v1.11.0 (v1.11.1: fix redirect https no login)): Google Login OAuth implementado (Flask/Render) com /cliente (pedidos do email logado) e /admin (todos os pedidos + pago/entregue). Pendente para validar ao vivo: rodar supabase_migracao_v111.sql no Supabase, criar credencial OAuth (GOOGLE_OAUTH_PASSO_A_PASSO.txt) e preencher GOOGLE_CLIENT_ID, GOOGLE_CLIENT_SECRET e ADMIN_EMAILS no .env e no Render; depois fazer login real. Portfolio multi-pagina v3.0 publicado; itens/prices reais ainda placeholder.
+- Onde paramos (11/09, v1.11.1): Google Login VALIDADO AO VIVO - o dono logou com a conta Google e abriu /admin como admin (client_id do Web app + redirect URI https OK em modo teste; usuario de teste liberado no Audience). Client antigo (desktop, sem redirect) substituido. Area do cliente (/cliente) vai mostrar os pedidos feitos com o mesmo e-mail do login. Pendente: fazer pedido de teste real para ver o pedido no /cliente; trocar itens/prices placeholder do portfolio; finalizar Fase C/1a venda (vetada pelo dono).
 
 ## PROTOCOLO DE REENTRADA (atualizado no Ãºltimo check-out)
 
