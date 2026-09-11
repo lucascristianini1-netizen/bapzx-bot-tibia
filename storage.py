@@ -75,6 +75,32 @@ class OrderStore:
             raise RuntimeError(f"Supabase {response.status_code}: {response.text[:200]}")
         return status
 
+    def save_email(self, order_id, email):
+        email = (email or "").strip().lower()
+        if self.remote:
+            try:
+                return self.update(order_id, {"email": email})
+            except Exception as error:
+                print(f"[storage] email nao salvo na nuvem: {error}")
+        order = self.find(order_id)
+        if order:
+            order["email"] = email
+            try:
+                with open(self.file_path, "r", encoding="utf-8") as f:
+                    orders = json.load(f)
+                for i, item in enumerate(orders):
+                    if item.get("id") == order_id:
+                        orders[i]["email"] = email
+                        break
+                else:
+                    return None
+                with open(self.file_path, "w", encoding="utf-8") as f:
+                    json.dump(orders, f, ensure_ascii=False, indent=2)
+                return email
+            except Exception:
+                return None
+        return None
+
     def update(self, order_id, fields):
         if not self.remote:
             print("[storage] update exige Supabase configurado")

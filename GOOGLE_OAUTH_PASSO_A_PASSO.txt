@@ -1,0 +1,40 @@
+GOOGLE OAUTH — PASSO A PASSO (Google Cloud Console)
+===================================================
+Criação da credencial "Entrar com o Google" para o site BAPZX.
+Nada de senha/token aqui: você gera no painel do Google e cola
+só as 3 variáveis no .env local e no Render.
+
+1) Acesse https://console.cloud.google.com e entre com a conta dona.
+2) Se pedir, aceite os termos. Clique em "Selecionar projeto" (topo)
+   > "Novo projeto" > nome: bapzx-site > Criar. Confirme que o projeto
+   bapzx-site está selecionado no topo e salve.
+
+3) Menu (☰) > "APIs e serviços" > "Tela de consentimento OAuth".
+   - User type: Externo (para poder logar com qualquer e-mail).
+   - Preencha: Nome do app: BAPZX; E-mail de suporte e dados de contato:
+     seu e-mail. Salve.
+   - Na etapa "Públicos-alvo": adicionar usuários -> só teste;
+     você pode adicionar você mesmo agora (não é obrigatório).
+   - Escopos: pode deixar os padrão. Salvar.
+
+4) Menu (☰) > "APIs e serviços" > "Credenciais" > "+ Criar credenciais"
+   > "ID do cliente OAuth":
+   - Tipo de aplicativo: "Aplicativo da Web".
+   - Nome: bapzx-site.
+   - URIs de redirecionamento autorizados: ADD
+       https://bapzx-bot-tibia.onrender.com/oauth/callback
+     (importante: exatamente essa URL, com esse final /oauth/callback).
+   - Criar. Copie o "ID do cliente" e a "Chave secreta do cliente".
+
+5) Envie para o OpenCode as três variáveis (em privado):
+     GOOGLE_CLIENT_ID     = <ID do cliente>
+     GOOGLE_CLIENT_SECRET = <Chave secreta>
+     ADMIN_EMAILS         = o seu e-mail do Google (o dono vira admin)
+       (se quiser mais admins, uma lista separada por vírgula)
+   E também o SECRET_KEY (chave de sessão; o OpenCode gera se precisar).
+
+6) Instruções também: /cliente e /admin darão 404 até você rodar o SQL
+   do arquivo supabase_migracao_v111.sql no Supabase (SQL Editor).
+
+Observação de segurança: GOOGLE_CLIENT_SECRET fica APENAS no .env
+(local) e no Render (Environment), nunca em arquivos do repositório.

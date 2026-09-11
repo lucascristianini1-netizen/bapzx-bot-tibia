@@ -9,11 +9,11 @@ import uuid
 from datetime import datetime
 
 import requests
-from flask import Flask, request, redirect
+from flask import Flask, request, redirect, session, url_for
 
 from storage import OrderStore
 
-VERSION = "1.10.2"
+VERSION = "1.11.0"
 
 BRAND = "BAPZX"
 STORE = "RUBINI COINS"
@@ -61,6 +61,13 @@ SHEET_WEBAPP_URL = load_env_key("SHEET_WEBAPP_URL")
 SHEET_TOKEN = load_env_key("SHEET_TOKEN")
 RENDER_URL = load_env_key("RENDER_URL") or "https://bapzx-bot-tibia.onrender.com"
 PORTFOLIO_URL = "https://lucascristianini1-netizen.github.io/bapzx-portfolio/"
+GOOGLE_CLIENT_ID = load_env_key("GOOGLE_CLIENT_ID") or ""
+GOOGLE_CLIENT_SECRET = load_env_key("GOOGLE_CLIENT_SECRET") or ""
+ADMIN_EMAILS = set(
+    e.strip().lower()
+    for e in (load_env_key("ADMIN_EMAILS") or "").split(",")
+    if e.strip()
+)
 AWAITING_EMAIL = {}
 EMAIL_RE = re.compile(r"^[\w.+-]+@[\w-]+\.[\w.-]+$")
 CHAT_HISTORY = {}
@@ -424,6 +431,31 @@ def dashboard_allowed():
 
 
 app = Flask(__name__)
+app.config.update(
+    SECRET_KEY=load_env_key("SECRET_KEY") or "dev-secret-key-change-me",
+    SESSION_COOKIE_HTTPONLY=True,
+    SESSION_COOKIE_SAMESITE="Lax",
+    SESSION_COOKIE_SECURE=True,
+)
+
+GOOGLE_OAUTH_READY = False
+_oauth = None
+try:
+    from authlib.integrations.flask_client import OAuth
+
+    _oauth = OAuth(app)
+    _oauth.register(
+        "google",
+        client_id=GOOGLE_CLIENT_ID or "missing",
+        client_secret=GOOGLE_CLIENT_SECRET or "missing",
+        server_metadata_url="https://accounts.google.com/.well-known/openid-configuration",
+        client_kwargs={"scope": "openid email profile"},
+    )
+    GOOGLE_OAUTH_READY = bool(GOOGLE_CLIENT_ID and GOOGLE_CLIENT_SECRET)
+except Exception as error:
+    print(f"[auth] authlib indisponivel: {error}")
+    _oauth = None
+
 STORE = OrderStore(
     pedidos_path(),
     url=load_env_key("SUPABASE_URL"),
@@ -542,6 +574,10 @@ def webhook():
             send_message(chat_id, "NÃ£o encontrei seu pedido. Fale com um atendente usando /vendedor.")
             return "ok", 200
         ok, result = create_pix_charge(order, candidate)
+        try:
+            STORE.save_email(order["id"], candidate)
+        except Exception as error:
+            print(f"[auth] falha ao gravar e-mail do pedido: {error}")
         if not ok:
             send_message(chat_id, "NÃ£o consegui gerar o Pix agora. " + result)
             send_message(chat_id, payment_text(order))
@@ -758,6 +794,252 @@ def pedidos():
     if not dashboard_allowed():
         return "Acesso restrito.", 401
     return f"{STORE.count()} pedido(s) registrado(s) | dashboard: /dashboard?key=SUA_CHAVE", 200
+
+
+AUTH_LAYOUT = """<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>{title}</title>
+<style>
+body {{ font-family: Arial, sans-serif; margin: 0; background: #0f172a; color: #e2e8f0; }}
+header {{ background: #1e293b; padding: 18px 24px; display: flex; align-items: center; justify-content: space-between; }}
+header h1 {{ margin: 0; font-size: 18px; }}
+header a {{ color: #94a3b8; font-size: 13px; text-decoration: none; }}
+main {{ padding: 24px; max-width: 960px; margin: 0 auto; }}
+.cards {{ display: flex; gap: 16px; flex-wrap: wrap; margin: 18px 0; }}
+.card {{ background: #1e293b; border-radius: 10px; padding: 14px 18px; flex: 1; min-width: 150px; }}
+.card .num {{ font-size: 24px; font-weight: bold; color: #4ade80; }}
+.card .lbl {{ font-size: 12px; color: #94a3b8; }}
+section {{ background: #1e293b; border-radius: 10px; padding: 16px 20px; margin: 18px 0; }}
+section h2 {{ margin-top: 0; font-size: 15px; }}
+table {{ width: 100%; border-collapse: collapse; font-size: 13px; }}
+th, td {{ text-align: left; padding: 7px 8px; border-bottom: 1px solid #334155; vertical-align: middle; }}
+th {{ color: #94a3b8; font-weight: normal; }}
+.empty {{ text-align: center; color: #64748b; padding: 18px; }}
+.status {{ padding: 2px 8px; border-radius: 5px; font-size: 11px; font-weight: bold; }}
+.status.pendente {{ background: #78350f; color: #fbbf24; }}
+.status.pago {{ background: #064e3b; color: #4ade80; }}
+.status.entregue {{ background: #1e3a5f; color: #60a5fa; }}
+.status.cancelado {{ background: #7f1d1d; color: #f87171; }}
+.acts form {{ display: inline; }}
+.acts button {{ background: #334155; border: 0; color: #e2e8f0; border-radius: 6px; padding: 5px 10px; cursor: pointer; font-size: 12px; }}
+.acts button.pago {{ background: #064e3b; color: #4ade80; }}
+.acts button.entregue {{ background: #1e3a5f; color: #60a5fa; }}
+.note {{ font-size: 12.5px; color: #94a3b8; }}
+.big {{ display: inline-block; background: #4ade80; color: #052e16; text-decoration: none; padding: 12px 22px; border-radius: 10px; font-weight: bold; }}
+</style>
+</head>
+<body>
+<header><h1>BAPZX &middot; {brand}</h1>{top}</header>
+<main>{body}</main>
+</body>
+</html>"""
+
+
+def _page(title, brand, top, body):
+    return (
+        AUTH_LAYOUT.format(
+            title=html.escape(title),
+            brand=html.escape(brand),
+            top=top,
+            body=body,
+        ),
+        200,
+        {"Content-Type": "text/html; charset=utf-8"},
+    )
+
+
+def current_user():
+    email = session.get("email")
+    if not email:
+        return None
+    return {
+        "email": email,
+        "name": session.get("name") or email,
+        "role": session.get("role") or "cliente",
+        "sub": session.get("sub"),
+    }
+
+
+def save_profile(email, name, sub, role):
+    if not (STORE.remote and email):
+        return False
+    payload = {"email": email, "name": name, "sub": sub or "", "role": role}
+    headers = {
+        **STORE._headers(),
+        "Prefer": "resolution=merge-duplicates",
+    }
+    response = requests.post(
+        f"{STORE.url}/rest/v1/profiles?on_conflict=email",
+        headers=headers,
+        json=payload,
+        timeout=15,
+    )
+    return response.status_code in (200, 201)
+
+
+def _orders_rows(orders, with_actions=False):
+    rows = ""
+    for order in sorted(orders, key=lambda o: o.get("data") or "", reverse=True):
+        status = order.get("status") or "pendente"
+        email = (order.get("email") or "-")
+        actions = ""
+        if with_actions:
+            form = (
+                "<form method='post' action='/admin/marcar'>"
+                "<input type='hidden' name='order_id' value='{oid}'>"
+                "<input type='hidden' name='status' value='{st}'>"
+                "<button class='{st}'>{lbl}</button></form>"
+            )
+            if status == "pendente":
+                actions = form.format(oid=order.get("id"), st="pago", lbl="pago")
+            if status in ("pendente", "pago"):
+                actions += form.format(oid=order.get("id"), st="entregue", lbl="entregue")
+        rows += (
+            "<tr>"
+            f"<td>{html.escape(str(order.get('data') or '-'))}</td>"
+            f"<td>{html.escape(str(order.get('usuario') or '-'))}</td>"
+            f"<td>{html.escape(str(order.get('char') or '-'))}</td>"
+            f"<td>{html.escape(str(order.get('tc') or '-'))} RC</td>"
+            f"<td>{html.escape(str(order.get('preco') or '-'))}</td>"
+            f"<td>{html.escape(str(order.get('mundo') or '-'))}</td>"
+            f"<td>{html.escape(email)}</td>"
+            f"<td><span class='status {html.escape(status)}'>{html.escape(status)}</span></td>"
+            f"<td class='acts'>{actions}</td>"
+            "</tr>"
+        )
+    if not rows:
+        rows = "<tr><td colspan='9' class='empty'>Nenhum pedido encontrado.</td></tr>"
+    return rows
+
+
+@app.route("/login")
+def login():
+    if not GOOGLE_OAUTH_READY:
+        return _page(
+            "Login",
+            "Área do cliente",
+            "",
+            "<h2>Login indisponível</h2>"
+            "<p>As credenciais do Google ainda não foram configuradas no servidor "
+            "(GOOGLE_CLIENT_ID / GOOGLE_CLIENT_SECRET). Avise o administrador.</p>",
+        )
+    redirect_uri = url_for("oauth_callback", _external=True)
+    return _oauth.google.authorize_redirect(redirect_uri)
+
+
+@app.route("/oauth/callback")
+def oauth_callback():
+    if not GOOGLE_OAUTH_READY:
+        return "Login indisponível.", 503
+    try:
+        token = _oauth.google.authorize_access_token()
+    except Exception as error:
+        print(f"[auth] falha no callback OAuth: {error}")
+        return "Falha ao autenticar com o Google. Tente novamente.", 400
+    info = token.get("userinfo") or {}
+    email = (info.get("email") or "").strip().lower()
+    if not email or not info.get("email_verified"):
+        return "Conta Google sem e-mail verificado. Não é possível continuar.", 403
+    name = info.get("name") or email.split("@")[0]
+    sub = info.get("sub") or ""
+    role = "admin" if email in ADMIN_EMAILS else "cliente"
+    try:
+        save_profile(email, name, sub, role)
+    except Exception as error:
+        print(f"[auth] falha ao salvar perfil: {error}")
+    session["email"] = email
+    session["name"] = name
+    session["role"] = role
+    session["sub"] = sub
+    return redirect("/admin" if role == "admin" else "/cliente")
+
+
+@app.route("/logout")
+def logout():
+    session.clear()
+    return redirect(PORTFOLIO_URL)
+
+
+@app.route("/cliente")
+def cliente():
+    user = current_user()
+    if not user:
+        return redirect("/login")
+    mine = [
+        o
+        for o in STORE.list()
+        if (o.get("email") or "").strip().lower() == user["email"]
+    ]
+    rows = _orders_rows(mine)
+    top = (
+        f"<span style='color:#94a3b8;font-size:12px'>{html.escape(user['name'])}</span> "
+        f"<a href='/logout'>Sair</a>"
+    )
+    body = (
+        "<div class='cards'>"
+        "<div class='card'><div class='num'>{n}</div><div class='lbl'>Meus pedidos</div></div>"
+        "</div>"
+    ).format(n=len(mine))
+    note = (
+        "Os pedidos aparecem aqui quando o pagamento foi solicitado com o "
+        "<b>mesmo e-mail</b> da sua conta Google. Se faltar algum pedido, finalize "
+        "a compra no Telegram usando esse e-mail no Pix."
+    )
+    body += f"<section><h2>Meus pedidos</h2>{rows}</section><p class='note'>{note}</p>"
+    return _page("Minha conta", "Minha conta", top, body)
+
+
+@app.route("/admin")
+def admin():
+    user = current_user()
+    if not user:
+        return redirect("/login")
+    if user["role"] != "admin":
+        return "Acesso restrito: somente administradores.", 403
+    orders = STORE.list()
+    faturado, por_dia, clientes, pagos = dashboard_metrics(orders)
+    total_brl = f"R$ {faturado:,.2f}".replace(",", "X").replace(".", ",").replace("X", ".")
+    cards = (
+        "<div class='cards'>"
+        "<div class='card'><div class='num'>{f}</div><div class='lbl'>Faturado (pagos)</div></div>"
+        "<div class='card'><div class='num'>{p}</div><div class='lbl'>Pagos</div></div>"
+        "<div class='card'><div class='num'>{n}</div><div class='lbl'>Pedidos</div></div>"
+        "<div class='card'><div class='num'>{c}</div><div class='lbl'>Clientes</div></div>"
+        "</div>"
+    ).format(f=total_brl, p=pagos, n=len(orders), c=len(clientes))
+    top = (
+        f"<span style='color:#4ade80;font-size:12px'>{html.escape(user['name'])} (admin)</span> "
+        f"<a href='/logout'>Sair</a>"
+    )
+    body = cards + (
+        "<section><h2>Todos os pedidos</h2>"
+        "<table><tr><th>Quando</th><th>Cliente</th><th>Char</th><th>Qtd</th>"
+        "<th>Valor</th><th>Mundo</th><th>E-mail</th><th>Status</th><th>Ações</th></tr>"
+        f"{_orders_rows(orders, with_actions=True)}</table></section>"
+    )
+    return _page("Administração", "Admin", top, body)
+
+
+@app.route("/admin/marcar", methods=["POST"])
+def admin_marcar():
+    user = current_user()
+    if not user or user["role"] != "admin":
+        return "Acesso restrito.", 403
+    host = request.host
+    referer = request.referrer or ""
+    if host.split(":")[0] not in referer:
+        return "Origem inválida.", 403
+    order_id_text = (request.form.get("order_id") or "").strip()
+    status = (request.form.get("status") or "").strip()
+    if not order_id_text.isdigit() or status not in ("pago", "entregue"):
+        return "Parâmetros inválidos.", 400
+    order_id = int(order_id_text)
+    ts_field = "pix_confirmado_em" if status == "pago" else "entregue_em"
+    apply_status(order_id, status, ts_field)
+    return redirect("/admin")
 
 
 def notify_owner(entry):
