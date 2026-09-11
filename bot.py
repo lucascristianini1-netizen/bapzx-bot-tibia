@@ -9,11 +9,11 @@ import uuid
 from datetime import datetime
 
 import requests
-from flask import Flask, request
+from flask import Flask, request, redirect
 
 from storage import OrderStore
 
-VERSION = "1.10.1"
+VERSION = "1.10.2"
 
 BRAND = "BAPZX"
 STORE = "RUBINI COINS"
@@ -60,6 +60,7 @@ MP_ACCESS_TOKEN = load_env_key("MP_ACCESS_TOKEN")
 SHEET_WEBAPP_URL = load_env_key("SHEET_WEBAPP_URL")
 SHEET_TOKEN = load_env_key("SHEET_TOKEN")
 RENDER_URL = load_env_key("RENDER_URL") or "https://bapzx-bot-tibia.onrender.com"
+PORTFOLIO_URL = "https://lucascristianini1-netizen.github.io/bapzx-portfolio/"
 AWAITING_EMAIL = {}
 EMAIL_RE = re.compile(r"^[\w.+-]+@[\w-]+\.[\w.-]+$")
 CHAT_HISTORY = {}
@@ -432,102 +433,12 @@ STORE = OrderStore(
 
 @app.route("/", methods=["GET"])
 def home():
-    return landing_page(), 200, {"Content-Type": "text/html; charset=utf-8"}
+    return redirect(PORTFOLIO_URL, code=302)
 
 
 @app.route("/health", methods=["GET"])
 def health():
     return f"bot ok v{VERSION}", 200
-
-
-def landing_page():
-    price_rows = "".join(
-        f"<tr><td>{value} RC</td><td class='price'>{price}</td></tr>"
-        for value, price in PRICES.items()
-    )
-    page = """<!DOCTYPE html>
-<html lang="pt-BR">
-<head>
-<meta charset="utf-8">
-<meta name="viewport" content="width=device-width, initial-scale=1">
-<title>RUBINI COINS - BAPZX | Rubini Coins (RC)</title>
-<style>
-body { font-family: Arial, sans-serif; margin: 0; background: #0f172a; color: #e2e8f0; }
-.wrap { max-width: 720px; margin: 0 auto; padding: 24px; }
-header { text-align: center; padding: 40px 0 16px; }
-header h1 { margin: 0 0 8px; font-size: 28px; }
-header p { margin: 0; color: #94a3b8; font-size: 15px; }
-.badge { display: inline-block; background: #064e3b; color: #4ade80; border-radius: 999px;
-         padding: 4px 14px; font-size: 13px; margin-top: 12px; }
-.cta { text-align: center; margin: 24px 0; }
-.btn { display: inline-block; background: #2563eb; color: #fff; text-decoration: none;
-       padding: 14px 28px; border-radius: 10px; font-size: 17px; font-weight: bold; }
-.btn:hover { background: #1d4ed8; }
-section { background: #1e293b; border-radius: 12px; padding: 20px; margin: 20px 0; }
-section h2 { margin: 0 0 12px; font-size: 17px; }
-table { width: 100%; border-collapse: collapse; font-size: 15px; }
-th, td { text-align: left; padding: 8px 10px; border-bottom: 1px solid #334155; }
-th { color: #94a3b8; font-weight: normal; }
-.price { color: #4ade80; font-weight: bold; }
-ol { margin: 0; padding-left: 20px; line-height: 1.9; }
-.steps li b { color: #60a5fa; }
-.note { font-size: 13px; color: #94a3b8; margin-top: 10px; }
-footer { text-align: center; color: #64748b; font-size: 12px; padding: 24px 0; }
-</style>
-</head>
-<body>
-<div class="wrap">
-<header>
-<h1>BAPZX &middot; RUBINI COINS</h1>
-<p>Ãrea de vendas online da BAPZX. Compra de Rubini Coins (RC) rÃ¡pida, segura e com pagamento via Pix.</p>
-<span class="badge">Entrega por trade in-game em atÃ© 10 min</span>
-</header>
-
-<div class="cta">
-<a class="btn" href="https://t.me/bapzx_bot">Comprar no Telegram</a>
-</div>
-
-<section>
-<h2>Tabela de preÃ§os</h2>
-<table>
-<tr><th>Quantidade</th><th>PreÃ§o</th></tr>
-{price_rows}
-</table>
-<p class="note">Pagamento: Pix. Entrega: Trade in-game no seu char/mundo.</p>
-</section>
-
-<section>
-<h2>Como comprar</h2>
-<ol class="steps">
-<li>Abra o bot no Telegram: mesmo os preÃ§os acima, direto no <b>t.me/bapzx_bot</b>.</li>
-<li>Toque em <b>Iniciar</b> e informe seus 4 dados: char, quantidade de RC, mundo e pagamento (Pix).</li>
-<li>Confirme com o bot e informe um <b>e-mail</b> para gerar o QR Code do Pix na hora.</li>
-<li>Pague pelo QR e a confirmaÃ§Ã£o chega sozinha; a <b>entrega Ã© feita em atÃ© 10 minutos</b> via trade no seu char.</li>
-</ol>
-</section>
-
-<section>
-<h2>Service BAPZX (R$20 por hora)</h2>
-<p>Service dedicado a UP level no RubinOT (R$20/h).</p>
-<p>Para solicitar, chame no WhatsApp:</p>
-<p><a class="btn" href="https://wa.me/5519991813598">Chamar no WhatsApp</a></p>
-<p class="note">(19) 99181-3598</p>
-</section>
-
-<section>
-<h2>Por que comprar com a BAPZX?</h2>
-<ul>
-<li>Pagamento automatico via Pix (confirmacao em segundos).</li>
-<li>Atendimento pelo Telegram, sem telas confusas.</li>
-<li>Entrega por trade dentro do jogo.</li>
-</ul>
-</section>
-
-<footer>BAPZX &middot; RUBINI COINS &middot; v""" + VERSION + """</footer>
-</div>
-</body>
-</html>"""
-    return page.replace("{price_rows}", price_rows)
 
 
 @app.route("/webhook", methods=["POST"])
