@@ -2,12 +2,11 @@
 
 ## PROTOCOLO DE REENTRADA (atualizado no último check-out)
 
-- Onde paramos: v1.6.0 com Pix automático via Mercado Pago implementado e validado localmente: pedido -> bot pede e-mail do cliente -> gera QR Code (imagem + copia e cola, validade 30 min) -> webhook `/webhook/mp` confirma o pagamento sozinho e marca o pedido como `pago` (teste mock validou: pedido 16 virou pago com pix_confirmado_em). Conta MP: INFORMATICATECHNOLOGY, conta pessoal, token de produção validado (`/users/me`) e cobranças de teste criadas/canceladas (R$ 1,00).
-- Próximo passo: adicionar `MP_ACCESS_TOKEN` e `RENDER_URL` nas Environment Variables do Render, publicar o push (Render baixa a v1.6.0) e validar o fluxo completo em atendimento real (cliente -> e-mail -> QR -> pago automatico -> /entregue).
-- Arquivos tocados: bot.py (v1.6.0), storage.py (save retorna a linha com id; novo update()), .env local.
+- Onde paramos: v1.6.0 no ar (Render responde "bot ok v1.6.0") com Pix automático via Mercado Pago: pedido -> bot pede e-mail -> gera QR Code (imagem + copia e cola, validade 30 min) -> webhook /webhook/mp confirma pagamento sozinho e marca pedido como pago. Testado local (inclusive webhook mock: pedido -> pago). Conta MP pessoal do dono conectada (token APP_USR validado, /users/me OK). Decisão registrada: tarifa do MP absorvida pela loja por enquanto. Tabela pedidos zerada (eram dados de teste).
+- Próximo passo: confirmar que MP_ACCESS_TOKEN e RENDER_URL foram adicionados às Environment Variables do Render (se ainda não) e validar o fluxo completo com um cliente real (pedido -> e-mail -> QR -> pagamento -> pago automático -> calendário de trade -> /entregue).
+- Arquivos tocados: bot.py, storage.py, MEMORIA.md, .env local.
 - Bloqueios: nenhum.
 - Dias restantes: 10 de 15.
-- Obs.: tabela `pedidos` foi zerada em 11/09 — todas as linhas (1 a 13) eram dados de teste das sessões anteriores; nenhuma venda real existia ainda.
 
 Atendente IA de venda de Tibia Coins via Telegram (Flask webhook + Google Gemini).
 Versão atual do bot: 1.6.0.
@@ -45,6 +44,7 @@ Versão atual do bot: 1.6.0.
 - Preços fixos na persona (100 a 2500 TC). Pagamento: Pix. Entrega: Trade in-game (pedir mundo e char).
 - Fallback de modelo IA: gemini-3.6-flash → gemini-3-flash-preview → gemini-3.5-flash.
 - Persistência: `OrderStore` usa Supabase (REST) como fonte de verdade quando `SUPABASE_URL`/`SUPABASE_KEY` estão setadas; falha/ausência cai para `pedidos.json` (local). Contagem (`/pedidos`) vem do Supabase via `Prefer: count=exact`, com fallback no arquivo.
+- Tarifa do Mercado Pago no Pix: ABSORVIDA pela loja por enquanto (decisão de 11/09) — o cliente paga exatamente o valor da tabela, sem acréscimo. Reavaliar quando a 1ª venda real aparecer no /dashboard (ver Pendências).
 
 ## Testes feitos (09/09/2026)
 
@@ -83,5 +83,5 @@ Versão atual do bot: 1.6.0.
 - Tratar pedido assíncrono: cliente informa mundo/char depois do valor (pedido parcial).
 - Remover placeholders pendentes da persona, se houver.
 - Confirmar visualmente a resposta da IA em atendimento real (no teste, o pedido gravou correto; a resposta da IA precisa ser conferida no chat após a correção da chave).
-- Definir política da tarifa do Mercado Pago no Pix (o MP desconta taxa da venda; decidir se repassa ao cliente ou absorve).
+- Reavaliar a tarifa do Mercado Pago no Pix: decisão atual é absorver (ver Decisões, 11/09); revisar na primeira venda real.
 - Validar o fluxo Pix automático em atendimento real de ponta a ponta (cliente real paga, webhook confirma, /entregue encerra).
