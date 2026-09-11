@@ -1,7 +1,9 @@
+import base64
 import json
 import os
 import re
 import sys
+import uuid
 from datetime import datetime
 
 import requests
@@ -9,7 +11,7 @@ from flask import Flask, request
 
 from storage import OrderStore
 
-VERSION = "1.5.0"
+VERSION = "1.6.0"
 
 if sys.platform == "win32":
     try:
@@ -44,6 +46,10 @@ if not TOKEN:
 
 BASE = f"https://api.telegram.org/bot{TOKEN}"
 PIX_KEY = load_env_key("PIX_KEY")
+MP_ACCESS_TOKEN = load_env_key("MP_ACCESS_TOKEN")
+RENDER_URL = load_env_key("RENDER_URL") or "https://bapzx-bot-tibia.onrender.com"
+AWAITING_EMAIL = {}
+EMAIL_RE = re.compile(r"^[\w.+-]+@[\w-]+\.[\w.-]+$")
 MODELS = [
     "models/gemini-3.6-flash",
     "models/gemini-3-flash-preview",
@@ -229,6 +235,70 @@ def notify_payment(entry):
     send_message(entry["chat_id"], payment_text(entry))
 
 
+def create_pix_charge(order, email):
+    amount = parse_brl(order.get("preco"))
+    if amount <= 0:
+        return False, "pedido sem valor definido."
+    tc = order.get("tc")
+    description = f"Tibia Coins {tc} TC - pedido {order['id']}" if tc else f"Tibia Coins - pedido {order['id']}"
+    payload = {
+        "transaction_amount": amount,
+        "description": description,
+        "payment_method_id": "pix",
+        "payer": {
+            "email": email,
+            "first_name": order.get("usuario") or "Cliente",
+        },
+        "external_reference": str(order["id"]),
+        "notification_url": f"{RENDER_URL}/webhook/mp",
+    }
+    headers = {
+        "Authorization": f"Bearer {MP_ACCESS_TOKEN}",
+        "Content-Type": "application/json",
+        "X-Idempotency-Key": str(uuid.uuid4()),
+    }
+    try:
+        response = requests.post(
+            "https://api.mercadopago.com/v1/payments", json=payload, headers=headers, timeout=20
+        )
+    except Exception as error:
+        return False, str(error)
+    if response.status_code not in (200, 201):
+        return False, f"Mercado Pago {response.status_code}: {response.text[:200]}"
+    data = response.json()
+    if data.get("status") != "pending":
+        return False, f"status inesperado: {data.get('status')}"
+    return True, data
+
+
+def send_qr(chat_id, data):
+    transaction_data = ((data.get("point_of_interaction") or {}).get("transaction_data")) or {}
+    img_b64 = transaction_data.get("qr_code_base64")
+    if img_b64:
+        try:
+            png = base64.b64decode(img_b64)
+            requests.post(
+                f"{BASE}/sendPhoto",
+                data={"chat_id": chat_id, "caption": "QR Code Pix - BAPZX Tibia Coins"},
+                files={"photo": ("qr.png", png, "image/png")},
+                timeout=15,
+            )
+        except Exception as error:
+            print(f"[mp] erro ao enviar QR: {error}")
+    qr_code = transaction_data.get("qr_code")
+    linhas = [
+        "PIX GERADO",
+        "",
+        "Escaneie o QR Code acima ou use o código abaixo (copia e cola):",
+        "",
+        qr_code or "(código indisponível)",
+        "",
+        "Validade: 30 minutos.",
+        "O pagamento é confirmado automaticamente. Assim que bater, te aviso aqui!",
+    ]
+    send_message(chat_id, "\n".join(linhas))
+
+
 def apply_status(order_id, status, ts_field=None):
     order = STORE.find(order_id)
     if not order:
@@ -332,14 +402,98 @@ def webhook():
                 )
             return "ok", 200
 
+    if chat_type == "private" and chat_id in AWAITING_EMAIL:
+        candidate = text.strip()
+        if EMAIL_RE.match(candidate):
+            order_id = AWAITING_EMAIL.pop(chat_id)
+            order = STORE.find(order_id)
+            if not order:
+                send_message(chat_id, "Não encontrei seu pedido. Fale com um atendente usando /vendedor.")
+                return "ok", 200
+            ok, result = create_pix_charge(order, candidate)
+            if not ok:
+                send_message(chat_id, "Não consegui gerar o Pix agora. " + result)
+                send_message(chat_id, payment_text(order))
+            else:
+                send_qr(chat_id, result)
+                notify_owner_pix(result, order)
+            return "ok", 200
+        send_message(
+            chat_id,
+            "Preciso do seu e-mail (ex.: nome@exemplo.com) para gerar o QR Code do Pix.",
+        )
+        return "ok", 200
+
     if chat_type == "private" and looks_like_order(text):
         entry = build_order(chat_id, username, text)
-        save_order(entry)
+        entry = save_order(entry)
         notify_owner(entry)
+        if MP_ACCESS_TOKEN:
+            AWAITING_EMAIL[chat_id] = entry["id"]
+            send_message(
+                chat_id,
+                "Pedido registrado! Já calculei o valor. Para gerar seu QR Code do Pix, "
+                "me responda com o seu e-mail (ex.: nome@exemplo.com).",
+            )
+            return "ok", 200
         notify_payment(entry)
 
     reply = ask_ai(text)
     send_message(chat_id, reply)
+    return "ok", 200
+
+
+@app.route("/webhook/mp", methods=["POST"])
+def webhook_mp():
+    payload = request.get_json(silent=True) or {}
+    data = payload.get("data") or {}
+    payment_id = data.get("id")
+    if not payment_id or not MP_ACCESS_TOKEN:
+        return "ok", 200
+    try:
+        response = requests.get(
+            f"https://api.mercadopago.com/v1/payments/{payment_id}",
+            headers={"Authorization": f"Bearer {MP_ACCESS_TOKEN}"},
+            timeout=15,
+        )
+    except Exception as error:
+        print(f"[mp] erro ao consultar pagamento: {error}")
+        return "ok", 200
+    if response.status_code != 200:
+        return "ok", 200
+    payment = response.json()
+    if payment.get("status") != "approved":
+        return "ok", 200
+    reference = payment.get("external_reference") or ""
+    if not reference.isdigit():
+        return "ok", 200
+    order_id = int(reference)
+    order = STORE.find(order_id)
+    if not order:
+        print(f"[mp] pedido {order_id} nao encontrado")
+        return "ok", 200
+    if (order.get("status") or "pendente") == "pago":
+        return "ok", 200
+    apply_status(order_id, "pago", "pix_confirmado_em")
+    owner_chat = load_env_key("TELEGRAM_OWNER_CHAT_ID")
+    send_message(
+        order["chat_id"],
+        "Seu pagamento foi CONFIRMADO. O atendente vai te chamar aqui para combinar o trade.\n"
+        "Deixa o char certo on-line no horário combinado.",
+    )
+    if owner_chat:
+        linhas = ["💸 PAGAMENTO CONFIRMADO - PIX", f"Pedido: {order_id}"]
+        if order.get("tc"):
+            linhas.append(f"Tibia Coins: {order['tc']}")
+        if order.get("preco"):
+            linhas.append(f"Valor: {order['preco']}")
+        if order.get("char"):
+            linhas.append(f"Char: {order['char']}")
+        if order.get("mundo"):
+            linhas.append(f"Mundo: {order['mundo']}")
+        linhas.append("Pagamento confirmado automaticamente via Mercado Pago.")
+        linhas.append(f"Chame o cliente para o trade e use /entregue {order_id}")
+        send_message(owner_chat, "\n".join(linhas))
     return "ok", 200
 
 
@@ -489,6 +643,23 @@ def notify_owner(entry):
     lines.append(f"Quando: {entry['data']}")
     lines.append(f"Mensagem: {entry['mensagem']}")
     send_message(owner_chat, "\n".join(lines))
+
+
+def notify_owner_pix(charge, entry):
+    owner_chat = load_env_key("TELEGRAM_OWNER_CHAT_ID")
+    if not owner_chat:
+        return
+    linhas = ["🧾 PIX GERADO PARA O PEDIDO"]
+    linhas.append(f"Pedido: {entry.get('id')}")
+    if entry.get("tc"):
+        linhas.append(f"Tibia Coins: {entry['tc']}")
+    if entry.get("preco"):
+        linhas.append(f"Valor: {entry['preco']}")
+    if entry.get("usuario"):
+        linhas.append(f"Cliente: {entry['usuario']}")
+    linhas.append(f"Mercado Pago id: {charge.get('id')}")
+    linhas.append("Aguardando pagamento (confirmação automática).")
+    send_message(owner_chat, "\n".join(linhas))
 
 
 def reply_vendor(chat_id, username):

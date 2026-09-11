@@ -2,14 +2,15 @@
 
 ## PROTOCOLO DE REENTRADA (atualizado no último check-out)
 
-- Onde paramos: v1.5.0 no ar; fluxo de pagamento implementado — pedido nasce pendente, cliente recebe texto com chave Pix; /pago e /entregue atualizam status no banco; dashboard mostra faturado só de pagos + coluna status. Colunas novas (status, pix_confirmado_em, entregue_em) criadas no Supabase.
-- Próximo passo: validar fluxo completo em atendimento real (cliente -> pedido -> Pix -> /pago -> trade -> /entregue) e adicionar chave Pix (PIX_KEY) ao .env e ao Render.
-- Arquivos tocados: bot.py, storage.py, MEMORIA.md, scripts/migracao_status.sql.
+- Onde paramos: v1.6.0 com Pix automático via Mercado Pago implementado e validado localmente: pedido -> bot pede e-mail do cliente -> gera QR Code (imagem + copia e cola, validade 30 min) -> webhook `/webhook/mp` confirma o pagamento sozinho e marca o pedido como `pago` (teste mock validou: pedido 16 virou pago com pix_confirmado_em). Conta MP: INFORMATICATECHNOLOGY, conta pessoal, token de produção validado (`/users/me`) e cobranças de teste criadas/canceladas (R$ 1,00).
+- Próximo passo: adicionar `MP_ACCESS_TOKEN` e `RENDER_URL` nas Environment Variables do Render, publicar o push (Render baixa a v1.6.0) e validar o fluxo completo em atendimento real (cliente -> e-mail -> QR -> pago automatico -> /entregue).
+- Arquivos tocados: bot.py (v1.6.0), storage.py (save retorna a linha com id; novo update()), .env local.
 - Bloqueios: nenhum.
-- Dias restantes: 11 de 15.
+- Dias restantes: 10 de 15.
+- Obs.: tabela `pedidos` foi zerada em 11/09 — todas as linhas (1 a 13) eram dados de teste das sessões anteriores; nenhuma venda real existia ainda.
 
 Atendente IA de venda de Tibia Coins via Telegram (Flask webhook + Google Gemini).
-Versão atual do bot: 1.5.0.
+Versão atual do bot: 1.6.0.
 
 ## Leitura obrigatória antes de alterar (memórias do projeto)
 
@@ -20,7 +21,7 @@ Versão atual do bot: 1.5.0.
 
 ## Estrutura
 
-- `bot.py` — webhook Flask: `/` (health, informa versão), `/webhook` (mensagens), `/pedidos` (contagem), comandos `/id`.
+- `bot.py` — webhook Flask: `/` (health, informa versão), `/webhook` (mensagens), `/webhook/mp` (notificações do Mercado Pago), `/pedidos` (contagem), `/dashboard`, comandos `/id`.
 - `storage.py` — `OrderStore`: salva/lista pedidos em Supabase (persistente) com fallback em `pedidos.json`.
 - `persona.txt` — persona da loja e regras de atendimento.
 - `pedidos.json` — pedidos salvos (runtime, fora do git, usado como fallback).
@@ -34,6 +35,9 @@ Versão atual do bot: 1.5.0.
 - `TELEGRAM_OWNER_CHAT_ID` = `1695600926` (aviso de novo pedido).
 - `GOOGLE_API_KEY` — fallback lido de `gemini-cli/.env`; no Render deve estar configurada.
 - `SUPABASE_URL` e `SUPABASE_KEY` — persistência em nuvem (opcional). Sem elas o bot grava só no arquivo local.
+- `MP_ACCESS_TOKEN` — Access Token de produção do Mercado Pago (começa com `APP_USR-`). Sem ele o bot volta ao modo manual (texto com PIX_KEY + /pago).
+- `RENDER_URL` — URL do deploy (padrão `bapzx-bot-tibia.onrender.com`), usada como notification_url das cobranças: `<RENDER_URL>/webhook/mp`.
+- `PIX_KEY` — chave Pix estática, usada só como fallback quando o Mercado Pago não está configurado.
 
 ## Decisões
 
@@ -60,6 +64,7 @@ Versão atual do bot: 1.5.0.
 - v1.4.1 (memoria de compra): criado MEMORIA_COMPRA.md com a regra de cálculo de preço (proporção 1.000 TC = R$ 90 — valor = quantidade x 90 / 1.000, passo a passo). Regra injetada no prompt da IA (calcula quantidades fora da tabela mostrando o cálculo) e aplicada no registro: novo `calc_price()` em bot.py (tabela fixa para 100/250/500/1.000/2.500; fórmula para o resto). Testado local: pedido de 600 TC gravou no Supabase id=7 com preco R$54,00; calc_price(800)=R$72,00, calc_price(1500)=R$135,00.
 - Migração do histórico (10/09): script `scripts/migrar_pedidos.py` insere no Supabase as linhas do `pedidos.json` ainda ausentes (dedupe por mensagem+chat_id) e esvazia o arquivo local ao concluir. Resultado: 5 inseridos (banco com 11 pedidos), pedidos do dia 09/09 preservados com data/chat/usuario originais.
 - v1.5.0 (fluxo de pagamento Pix): colunas `status`, `pix_confirmado_em` e `entregue_em` adicionadas ao Supabase via `scripts/migracao_status.sql`; pedido nasce com `status=pendente` e cliente recebe texto com valor + chave Pix (configurável via var `PIX_KEY` no .env/Render; sem chave o texto pede para usar /vendedor). Comandos `/pago <id>` e `/entregue <id>` no chat do dono (validação por chat_id), com aviso automático ao cliente em cada etapa; não-dono recebendo `/pago` é bloqueado. Dashboard: faturado contabiliza só pedidos com `status=pago` e agora tem card "Pagos" + coluna "Status" estilizada. Testado local: pedido id=13 (1500 tc, R$135, nisseus, antica) -> /pago -> status=pago (ts preenchido) -> /entregue -> status=entregue; dashboard exibe status e totais; não-dono bloqueado.
+- v1.6.0 (Pix automático via Mercado Pago, 11/09): token de produção do Mercado Pago validado (`GET /users/me`). Fluxo novo: pedido detectado -> bot pede o e-mail do cliente -> `create_pix_charge` cria cobrança Pix real (`POST /v1/payments`, payment_method_id=pix, external_reference=id do pedido, header `X-Idempotency-Key` obrigatório, notification_url `RENDER_URL/webhook/mp`) -> `send_qr` envia QR (imagem via sendPhoto + código copia e cola, validade 30 min) -> quando o pagamento confirma, o Mercado Pago chama `/webhook/mp`, que consulta o pagamento e, se `approved`, marca o pedido como `pago` sozinho e avisa cliente e dono. Sem MP configurado, cai no fluxo manual (PIX_KEY + /pago). `OrderStore.save` voltou a retornar a linha salva com id (header `Prefer: return=representation` na REST do Supabase; fallback arquivo gera id próprio). Testado local: fluxo completo pedido->e-mail->QR no Telegram; webhook mock validou pedido -> pago com pix_confirmado_em; cobrança real de R$1,00 criada e cancelada (validação da API). Orfãos de teste cancelados e linhas de teste removidas. OBS.: nessa sessão a tabela pedidos foi limpa — as linhas existentes eram todas de teste (ids 1-13, nenhuma venda real).
 
 ## Configuração Supabase (10/09/2026)
 
@@ -70,6 +75,7 @@ Versão atual do bot: 1.5.0.
 ## Segurança
 
 - Token do bot rotacionado em 10/09 (via /revoke no BotFather): antigo revogado (401) e novo token aplicado no `.env` local, no Render (TELEGRAM_BOT_TOKEN) e no webhook (setWebhook → bapzx-bot-tibia.onrender.com/webhook). Teste end-to-end: /preco pelo webhook do Render respondeu 200 com a resposta entregue no chat do dono.
+- Token do Mercado Pago (MP_ACCESS_TOKEN): fica somente no `.env` local (gitignored) e nas env vars do Render; nunca em código/documentos/backup. Validação do dono usada nas chamadas: a conta pertence a lucascristianini@outlook.com.br.
 - Nunca colocar senhas, tokens ou chaves de API no código, documentação ou backup (ver MEMORIA_SEGURANCA.md).
 
 ## Pendências
@@ -77,3 +83,5 @@ Versão atual do bot: 1.5.0.
 - Tratar pedido assíncrono: cliente informa mundo/char depois do valor (pedido parcial).
 - Remover placeholders pendentes da persona, se houver.
 - Confirmar visualmente a resposta da IA em atendimento real (no teste, o pedido gravou correto; a resposta da IA precisa ser conferida no chat após a correção da chave).
+- Definir política da tarifa do Mercado Pago no Pix (o MP desconta taxa da venda; decidir se repassa ao cliente ou absorve).
+- Validar o fluxo Pix automático em atendimento real de ponta a ponta (cliente real paga, webhook confirma, /entregue encerra).

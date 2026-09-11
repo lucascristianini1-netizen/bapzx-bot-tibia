@@ -26,14 +26,18 @@ class OrderStore:
         if self.remote:
             payload = {k: v for k, v in entry.items() if v is not None}
             try:
+                headers = {**self._headers(), "Prefer": "return=representation"}
                 response = requests.post(
                     f"{self.url}/rest/v1/{self.table}",
-                    headers=self._headers(),
+                    headers=headers,
                     json=payload,
                     timeout=15,
                 )
                 if response.status_code not in (200, 201):
                     raise RuntimeError(f"Supabase {response.status_code}: {response.text[:200]}")
+                rows = response.json()
+                if isinstance(rows, list) and rows:
+                    return rows[0]
                 return entry
             except Exception as error:
                 print(f"[storage] Supabase falhou, gravando em arquivo: {error}")
@@ -48,6 +52,8 @@ class OrderStore:
                 orders = []
         except Exception:
             orders = []
+        entry = dict(entry)
+        entry.setdefault("id", (max((o.get("id") or 0 for o in orders), default=0)) + 1)
         orders.append(entry)
         with open(self.file_path, "w", encoding="utf-8") as f:
             json.dump(orders, f, ensure_ascii=False, indent=2)
@@ -68,6 +74,20 @@ class OrderStore:
         if response.status_code not in (200, 204):
             raise RuntimeError(f"Supabase {response.status_code}: {response.text[:200]}")
         return status
+
+    def update(self, order_id, fields):
+        if not self.remote:
+            print("[storage] update exige Supabase configurado")
+            return None
+        response = requests.patch(
+            f"{self.url}/rest/v1/{self.table}?id=eq.{order_id}",
+            headers=self._headers(),
+            json=fields,
+            timeout=15,
+        )
+        if response.status_code not in (200, 204):
+            raise RuntimeError(f"Supabase {response.status_code}: {response.text[:200]}")
+        return fields
 
     def find(self, order_id):
         for order in self.list():
