@@ -3,7 +3,7 @@
 ## PROTOCOLO DE REENTRADA (atualizado no último check-out)
 
 - Onde paramos: v1.6.0 no ar (Render responde "bot ok v1.6.0") com Pix automático via Mercado Pago: pedido -> bot pede e-mail -> gera QR Code (imagem + copia e cola, validade 30 min) -> webhook /webhook/mp confirma pagamento sozinho e marca pedido como pago. Testado local (inclusive webhook mock: pedido -> pago). Conta MP pessoal do dono conectada (token APP_USR validado, /users/me OK). Decisão registrada: tarifa do MP absorvida pela loja por enquanto. Tabela pedidos zerada (eram dados de teste).
-- Próximo passo: confirmar que MP_ACCESS_TOKEN e RENDER_URL foram adicionados às Environment Variables do Render (se ainda não) e validar o fluxo completo com um cliente real (pedido -> e-mail -> QR -> pagamento -> pago automático -> calendário de trade -> /entregue).
+- Próximo passo: validar o fluxo completo com um cliente real (pedido -> e-mail -> QR -> pagamento -> pago automático -> trade -> /entregue). MP_ACCESS_TOKEN e RENDER_URL já confirmados nas Environment Variables do Render (11/09).
 - Arquivos tocados: bot.py, storage.py, MEMORIA.md, .env local.
 - Bloqueios: nenhum.
 - Dias restantes: 10 de 15.
