@@ -2,14 +2,14 @@
 
 ## PROTOCOLO DE REENTRADA (atualizado no último check-out)
 
-- Onde paramos: v1.7.0 — landing page pública no `/`, rota `/health`, dashboard `/dashboard` e `/pedidos` protegidos por chave `DASHBOARD_KEY` (fail-closed), rate limit anti-spam da IA, extração de char corrigida (stop-words) e expiração do pedido de e-mail (30 min). Tudo testado (suite offline passou). v1.6.0 (Pix automático Mercado Pago) já no ar no Render.
-- Próximo passo: adicionar `DASHBOARD_KEY` (valor gerado, guardado no .env local) nas Environment Variables do Render e validar o fluxo completo com o primeiro cliente real (pedido -> e-mail -> QR -> pago automático -> trade -> /entregue). Depois: divulgação (a landing já está publicada em https://bapzx-bot-tibia.onrender.com/).
-- Arquivos tocados: bot.py, storage.py, MEMORIA.md, .env local.
-- Bloqueios: nenhum.
+- Onde paramos: v1.8.0 — automação da PLANILHA DE CLIENTES (Google Sheets). O bot agora envia cada pedido e cada mudança de status (pago/entregue) para um Apps Script Web App via `push_to_sheet` (POST + token `SHEET_TOKEN`), em 14 colunas da planilha. Testado local (payload/mapeamento/sem-config-não-quebra) + suíte v1.7.0 completa verde. Fase C e a validação com 1º cliente real estão VETADAS pelo dono até tudo ficar ajustado; Plano B documentado em planilha-clientes/PLANO_B.txt. v1.6.0/v1.7.0 já no ar no Render.
+- Próximo passo (ação do DONO no Google): colar `planilha-clientes/CODIGO_APPS_SCRIPT.js` em Apps Script (sob a planilha), rodar `configurar()` com o SHEET_TOKEN (valor no .env local + informado na sessão), implantar Web App ("Executar como: Eu / acesso: qualquer pessoa") e colar a URL no `.env` local e no Render como SHEET_WEBAPP_URL. Depois um pedido de teste cria/atualiza a linha na planilha. Também pendente no Render: adicionar `DASHBOARD_KEY` (nome da var, valor no .env local) e `SHEET_WEBAPP_URL`/`SHEET_TOKEN` nas Environment Variables.
+- Arquivos tocados: bot.py, MEMORIA.md, planilha-clientes/ (CODIGO_APPS_SCRIPT.js, TEMPLATE_CLIENTES_v2.csv, PLANO_B.txt, COMO_USAR), .env local, manual.txt, ROADMAP.
+- Bloqueios: nenhum (depende de configuração manual do dono no Google Sheets/Render).
 - Dias restantes: 10 de 15.
 
 Atendente IA de venda de Tibia Coins via Telegram (Flask webhook + Google Gemini).
-Versão atual do bot: 1.7.0.
+Versão atual do bot: 1.8.0.
 
 ## Leitura obrigatória antes de alterar (memórias do projeto)
 
@@ -38,6 +38,7 @@ Versão atual do bot: 1.7.0.
 - `RENDER_URL` — URL do deploy (padrão `bapzx-bot-tibia.onrender.com`), usada como notification_url das cobranças: `<RENDER_URL>/webhook/mp`.
 - `PIX_KEY` — chave Pix estática, usada só como fallback quando o Mercado Pago não está configurado.
 - `DASHBOARD_KEY` — chave de acesso do `/dashboard` e `/pedidos` (query `?key=` ou header `X-Dashboard-Key`). Sem ela as rotas ficam bloqueadas (fail-closed). Valor gerado fica só no `.env` local e no Render — nunca em código/docs/repo (ver MEMORIA_SEGURANCA.md).
+- `SHEET_WEBAPP_URL` e `SHEET_TOKEN` — alimentação automática da planilha de clientes (Google Sheets via Apps Script Web App). URL do deploy + token compartilhado bot↔script. Sem eles o bot pula o envio sem quebrar.
 
 ## Decisões
 
@@ -74,6 +75,7 @@ Versão atual do bot: 1.7.0.
 
 - v1.6.0 (Pix automático via Mercado Pago, 11/09): token de produção do Mercado Pago validado (`GET /users/me`). Fluxo novo: pedido detectado -> bot pede o e-mail do cliente -> `create_pix_charge` cria cobrança Pix real (`POST /v1/payments`, payment_method_id=pix, external_reference=id do pedido, header `X-Idempotency-Key` obrigatório, notification_url `RENDER_URL/webhook/mp`) -> `send_qr` envia QR (imagem via sendPhoto + código copia e cola, validade 30 min) -> quando o pagamento confirma, o Mercado Pago chama `/webhook/mp`, que consulta o pagamento e, se `approved`, marca o pedido como `pago` sozinho e avisa cliente e dono. Sem MP configurado, cai no fluxo manual (PIX_KEY + /pago). `OrderStore.save` voltou a retornar a linha salva com id (header `Prefer: return=representation` na REST do Supabase; fallback arquivo gera id próprio). Testado local: fluxo completo pedido->e-mail->QR no Telegram; webhook mock validou pedido -> pago com pix_confirmado_em; cobrança real de R$1,00 criada e cancelada (validação da API). Orfãos de teste cancelados e linhas de teste removidas. OBS.: nessa sessão a tabela pedidos foi limpa — as linhas existentes eram todas de teste (ids 1-13, nenhuma venda real).
 - v1.7.0 (revisão, segurança e landing, 11/09): `/` virou landing pública (preços, como comprar, botão + QR para t.me/bapzx_bot), novo `/health` para monitoramento, `/dashboard` e `/pedidos` passaram a exigir `DASHBOARD_KEY` (401 sem chave; 200 com `?key=`), rate limit anti-spam da IA (5 msgs/12s), extração do char corrigida com stop-words (`char Rei Leao mundo antica` -> "rei leao"), expiração de 30 min no pedido de e-mail do Pix, prompt da IA orientado a não pedir e-mail (o sistema pede). Suite de testes offline passou: landing, health, trava de dashboard/pedidos, fluxo de pedido (fallback e MP), e-mail (válido/inválido/expirado), QR gerado, rate limit e webhook/mp idempotente.
+- v1.8.0 (automação da planilha de clientes, 11/09): `push_to_sheet` envia cada pedido (e cada atualização de status via `apply_status` — pago/entregue) como POST para o Apps Script Web App (`SHEET_WEBAPP_URL`), autenticado por `SHEET_TOKEN`; payload mapeado para as 14 colunas da planilha (data, cliente, contato, origem, mundo, char, quantidade_tc, preco, tipo_pagamento, data_pagamento, data_entrega, status, id_pedido, observacoes); status "pendente" vira "pagamento_pendente" na planilha. Testes: unit de payload/mapeamento/what-if (sem config não quebra) + suíte v1.7.0 completa verde. Falta configurar no Google: colar `CODIGO_APPS_SCRIPT.js`, rodar `configurar()` com o SHEET_TOKEN e implantar Web App (URL → SHEET_WEBAPP_URL no .env + Render).
 
 ## Configuração Supabase (10/09/2026)
 

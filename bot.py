@@ -13,7 +13,7 @@ from flask import Flask, request
 
 from storage import OrderStore
 
-VERSION = "1.7.0"
+VERSION = "1.8.0"
 
 if sys.platform == "win32":
     try:
@@ -49,6 +49,8 @@ if not TOKEN:
 BASE = f"https://api.telegram.org/bot{TOKEN}"
 PIX_KEY = load_env_key("PIX_KEY")
 MP_ACCESS_TOKEN = load_env_key("MP_ACCESS_TOKEN")
+SHEET_WEBAPP_URL = load_env_key("SHEET_WEBAPP_URL")
+SHEET_TOKEN = load_env_key("SHEET_TOKEN")
 RENDER_URL = load_env_key("RENDER_URL") or "https://bapzx-bot-tibia.onrender.com"
 AWAITING_EMAIL = {}
 EMAIL_RE = re.compile(r"^[\w.+-]+@[\w-]+\.[\w.-]+$")
@@ -59,6 +61,7 @@ CHAR_STOP_WORDS = {
     "para", "pra", "e", "vou", "quero", "trade", "email", "e-mail", "depois",
     "aguardando", "entrega", "sera", "vai",
 }
+SHEET_STATUS_MAP = {"pendente": "pagamento_pendente"}
 MODELS = [
     "models/gemini-3.6-flash",
     "models/gemini-3-flash-preview",
@@ -259,6 +262,37 @@ def notify_payment(entry):
     send_message(entry["chat_id"], payment_text(entry))
 
 
+def push_to_sheet(order):
+    if not SHEET_WEBAPP_URL or not SHEET_TOKEN:
+        return
+    status = (order.get("status") or "pendente")
+    payload = {
+        "token": SHEET_TOKEN,
+        "order": {
+            "data": (order.get("data") or "")[:10],
+            "cliente": order.get("usuario") or "",
+            "contato": str(order.get("chat_id") or ""),
+            "origem": "Bot/Telegram",
+            "mundo": order.get("mundo") or "",
+            "char": order.get("char") or "",
+            "quantidade_tc": order.get("tc") or "",
+            "preco": order.get("preco") or "",
+            "tipo_pagamento": "MP Pix" if MP_ACCESS_TOKEN else "Pix manual",
+            "data_pagamento": (order.get("pix_confirmado_em") or "")[:10],
+            "data_entrega": (order.get("entregue_em") or "")[:10],
+            "status": SHEET_STATUS_MAP.get(status, status),
+            "id_pedido": order.get("id") or "",
+            "observacoes": "",
+        },
+    }
+    try:
+        response = requests.post(SHEET_WEBAPP_URL, json=payload, timeout=10)
+        if response.status_code != 200:
+            print(f"[planilha] status {response.status_code}: {response.text[:200]}")
+    except Exception as error:
+        print(f"[planilha] erro ao enviar pedido {order.get('id')}: {error}")
+
+
 def create_pix_charge(order, email):
     amount = parse_brl(order.get("preco"))
     if amount <= 0:
@@ -329,6 +363,8 @@ def apply_status(order_id, status, ts_field=None):
         return "nao encontrado", None
     now_iso = datetime.now().isoformat(timespec="seconds")
     STORE.set_status(order_id, status, ts_field, now_iso)
+    updated = STORE.find(order_id) or order
+    push_to_sheet(updated)
     return "ok", order
 
 
@@ -566,6 +602,7 @@ def webhook():
         entry = build_order(chat_id, username, text)
         entry = save_order(entry)
         notify_owner(entry)
+        push_to_sheet(entry)
         if MP_ACCESS_TOKEN and entry.get("id"):
             AWAITING_EMAIL[chat_id] = {"order_id": entry["id"], "ts": time.time()}
             send_message(
