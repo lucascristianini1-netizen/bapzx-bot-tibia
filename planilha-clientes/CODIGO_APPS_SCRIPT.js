@@ -48,7 +48,8 @@ function doPost(e) {
   var ss = SpreadsheetApp.getActiveSpreadsheet();
   var sheet = ss.getSheetByName('Dados') || ss.getActiveSheet();
 
-  var header = sheet.getRange(1, 1, 1, sheet.getLastColumn() || COLUNAS.length).getValues()[0];
+  ensureHeader(sheet);
+  var header = sheet.getRange(1, 1, 1, COLUNAS.length).getValues()[0];
   var colMap = {};
   for (var i = 0; i < header.length; i++) {
     colMap[String(header[i]).toLowerCase().trim()] = i;
@@ -89,4 +90,27 @@ function json_(obj) {
   return ContentService
     .createTextOutput(JSON.stringify(obj))
     .setMimeType(ContentService.MimeType.JSON);
+}
+
+/**
+ * Garante que a linha 1 da planilha seja EXATAMENTE a lista COLUNAS
+ * (na mesma ordem). Assim o id_pedido fica sempre na coluna certa e o
+ * update encontra a linha mesmo que a planilha tenha sido criado com
+ * outro cabecalho (ex.: template v1 com 11 colunas).
+ */
+function ensureHeader(sheet) {
+  var atual = [];
+  var n = Math.min(sheet.getLastColumn(), COLUNAS.length);
+  if (n >= 1) {
+    atual = sheet.getRange(1, 1, 1, n).getValues()[0];
+  }
+  var igual = atual.length === COLUNAS.length;
+  if (igual) {
+    for (var i = 0; i < COLUNAS.length; i++) {
+      if (String(atual[i]).toLowerCase().trim() !== COLUNAS[i]) { igual = false; break; }
+    }
+  }
+  if (!igual) {
+    sheet.getRange(1, 1, 1, COLUNAS.length).setValues([COLUNAS]);
+  }
 }
