@@ -14,7 +14,7 @@ from flask import Flask, request, redirect, session
 
 from storage import OrderStore
 
-VERSION = "1.11.2"
+VERSION = "1.11.3"
 
 BRAND = "BAPZX"
 STORE = "RUBINI COINS"
@@ -61,7 +61,7 @@ MP_ACCESS_TOKEN = load_env_key("MP_ACCESS_TOKEN")
 SHEET_WEBAPP_URL = load_env_key("SHEET_WEBAPP_URL")
 SHEET_TOKEN = load_env_key("SHEET_TOKEN")
 RENDER_URL = load_env_key("RENDER_URL") or "https://bapzx-bot-tibia.onrender.com"
-PORTFOLIO_URL = "https://lucascristianini1-netizen.github.io/bapzx-portfolio/"
+PORTFOLIO_URL = "https://bapzxdev.github.io/bapzx-portfolio/"
 TELEGRAM_WEBHOOK_SECRET = load_env_key("TELEGRAM_WEBHOOK_SECRET") or ""
 GOOGLE_CLIENT_ID = load_env_key("GOOGLE_CLIENT_ID") or ""
 GOOGLE_CLIENT_SECRET = load_env_key("GOOGLE_CLIENT_SECRET") or ""
