@@ -9,11 +9,11 @@ import uuid
 from datetime import datetime
 
 import requests
-from flask import Flask, request, redirect, session, url_for
+from flask import Flask, request, redirect, session
 
 from storage import OrderStore
 
-VERSION = "1.11.0"
+VERSION = "1.11.1"
 
 BRAND = "BAPZX"
 STORE = "RUBINI COINS"
@@ -926,7 +926,7 @@ def login():
             "<p>As credenciais do Google ainda não foram configuradas no servidor "
             "(GOOGLE_CLIENT_ID / GOOGLE_CLIENT_SECRET). Avise o administrador.</p>",
         )
-    redirect_uri = url_for("oauth_callback", _external=True)
+    redirect_uri = f"https://{request.host}/oauth/callback"
     return _oauth.google.authorize_redirect(redirect_uri)
 
 
