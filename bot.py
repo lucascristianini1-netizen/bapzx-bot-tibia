@@ -103,7 +103,7 @@ HELP_TEXT = (
 )
 
 ABOUT_TEXT = (
-    "RUBINI COINS é a loja de Tibia Coins da BAPZX: venda rápida e segura.\n"
+    "RUBINI COINS é a loja de Rubini Coins (Tibia Coins) da BAPZX: venda rápida e segura.\n"
     "Pagamento via Pix e entrega por Trade in-game na sua world/char.\n"
     "Entrega em até 10 minutos após a confirmação do pagamento.\n"
     "Use /preco para ver a tabela, /servico para os serviços BAPZX, "
