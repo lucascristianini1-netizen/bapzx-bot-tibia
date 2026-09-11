@@ -3,17 +3,18 @@ import html
 import json
 import os
 import re
+import secrets
 import sys
 import time
 import uuid
-from datetime import datetime
+from datetime import datetime, timedelta
 
 import requests
 from flask import Flask, request, redirect, session
 
 from storage import OrderStore
 
-VERSION = "1.11.1"
+VERSION = "1.11.2"
 
 BRAND = "BAPZX"
 STORE = "RUBINI COINS"
@@ -61,6 +62,7 @@ SHEET_WEBAPP_URL = load_env_key("SHEET_WEBAPP_URL")
 SHEET_TOKEN = load_env_key("SHEET_TOKEN")
 RENDER_URL = load_env_key("RENDER_URL") or "https://bapzx-bot-tibia.onrender.com"
 PORTFOLIO_URL = "https://lucascristianini1-netizen.github.io/bapzx-portfolio/"
+TELEGRAM_WEBHOOK_SECRET = load_env_key("TELEGRAM_WEBHOOK_SECRET") or ""
 GOOGLE_CLIENT_ID = load_env_key("GOOGLE_CLIENT_ID") or ""
 GOOGLE_CLIENT_SECRET = load_env_key("GOOGLE_CLIENT_SECRET") or ""
 ADMIN_EMAILS = set(
@@ -436,7 +438,17 @@ app.config.update(
     SESSION_COOKIE_HTTPONLY=True,
     SESSION_COOKIE_SAMESITE="Lax",
     SESSION_COOKIE_SECURE=True,
+    PERMANENT_SESSION_LIFETIME=timedelta(days=7),
 )
+
+
+@app.after_request
+def security_headers(response):
+    response.headers["X-Content-Type-Options"] = "nosniff"
+    response.headers["X-Frame-Options"] = "DENY"
+    response.headers["Referrer-Policy"] = "same-origin"
+    response.headers["Permissions-Policy"] = "geolocation=(), microphone=(), camera=()"
+    return response
 
 GOOGLE_OAUTH_READY = False
 _oauth = None
@@ -475,6 +487,10 @@ def health():
 
 @app.route("/webhook", methods=["POST"])
 def webhook():
+    if TELEGRAM_WEBHOOK_SECRET:
+        provided = request.headers.get("X-Telegram-Bot-Api-Secret-Token") or ""
+        if not secrets.compare_digest(provided, TELEGRAM_WEBHOOK_SECRET):
+            return "ok", 403
     update = request.get_json(silent=True) or {}
     message = update.get("message") or {}
     text = message.get("text")
@@ -722,19 +738,18 @@ def dashboard():
         status = order.get("status") or "pendente"
         rows += (
             "<tr>"
-            f"<td>{order.get('data') or '-'}</td>"
-            f"<td>{order.get('char') or '-'}</td>"
-            f"<td>{order.get('tc') or '-'} RC</td>"
-            f"<td>{order.get('preco') or '-'}</td>"
-            f"<td>{order.get('mundo') or '-'}</td>"
-            f"<td>{order.get('pagamento') or '-'}</td>"
-            f"<td>{order.get('usuario') or '-'}</td>"
-            f"<td><span class='status {status}'>{status}</span></td>"
+            f"<td>{html.escape(str(order.get('data') or '-'))}</td>"
+            f"<td>{html.escape(str(order.get('char') or '-'))}</td>"
+            f"<td>{html.escape(str(order.get('tc') or '-'))} RC</td>"
+            f"<td>{html.escape(str(order.get('preco') or '-'))}</td>"
+            f"<td>{html.escape(str(order.get('mundo') or '-'))}</td>"
+            f"<td>{html.escape(str(order.get('pagamento') or '-'))}</td>"
+            f"<td>{html.escape(str(order.get('usuario') or '-'))}</td>"
+            f"<td><span class='status {html.escape(status)}'>{html.escape(status)}</span></td>"
             "</tr>"
         )
     if not rows:
         rows = "<tr><td colspan='8' class='empty'>Nenhum pedido ainda</td></tr>"
-    import html
     title = html.escape("BAPZX - Dashboard de vendas")
 
     page = f"""<!DOCTYPE html>
@@ -954,6 +969,7 @@ def oauth_callback():
     session["name"] = name
     session["role"] = role
     session["sub"] = sub
+    session.permanent = True
     return redirect("/admin" if role == "admin" else "/cliente")
 
 
@@ -1028,9 +1044,14 @@ def admin_marcar():
     user = current_user()
     if not user or user["role"] != "admin":
         return "Acesso restrito.", 403
-    host = request.host
-    referer = request.referrer or ""
-    if host.split(":")[0] not in referer:
+    from urllib.parse import urlparse
+
+    host = request.host.split(":")[0]
+    try:
+        referer_host = (urlparse(request.referrer or "").hostname or "").lower()
+    except Exception:
+        referer_host = ""
+    if referer_host != host:
         return "Origem inválida.", 403
     order_id_text = (request.form.get("order_id") or "").strip()
     status = (request.form.get("status") or "").strip()
@@ -1100,7 +1121,10 @@ def reply_vendor(chat_id, username):
 
 
 def set_webhook(url):
-    response = requests.post(f"{BASE}/setWebhook", json={"url": url}, timeout=15)
+    payload = {"url": url}
+    if TELEGRAM_WEBHOOK_SECRET:
+        payload["secret_token"] = TELEGRAM_WEBHOOK_SECRET
+    response = requests.post(f"{BASE}/setWebhook", json=payload, timeout=15)
     print("setWebhook:", response.json())
 
 
