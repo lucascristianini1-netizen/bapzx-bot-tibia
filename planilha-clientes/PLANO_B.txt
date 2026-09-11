@@ -1,0 +1,83 @@
+========================================================================
+PLANO B - OPERACAO NAO PARA SE O PLANO A FALHAR (BAPZX Tibia Coins)
+========================================================================
+Criado em: 11/09/2026
+Contexto: o "Plano A" (fluxo 100% automatico) e:
+  Telegram -> bot.py no Render -> IA + pedido no Supabase ->
+  Mercado Pago gera Pix -> /webhook/mp marca pago -> trade -> /entregue.
+Se QUALQUER peca cair, usamos o backup abaixo. A REGRA DE OURO:
+  atendimento humano e planilha registram tudo; ninguem perde venda.
+
+----------------------------------------------------------------------------
+O QUE FALHOU               | O QUE ACONTECE              | PLA  N B
+----------------------------------------------------------------------------
+1. Supabase fora          | Bot usa pedidos.json        | Nada a fazer, o bot
+   (banco)                | (fallback ja embutido).     | segue sozinho. Quando
+                          | /dashboard temporariamente  | voltar, conferir que os
+                          | so le o arquivo local.      | pedidos estao no banco.
+----------------------------------------------------------------------------
+2. Mercado Pago fora     | Nao gera QR nem confirma    | Venda MANUAL com a
+   (API/erro/token)      | sozinho.                     | chave Pix do dono:
+                          |                              | 1. bot pede pagamento
+                          |                              |    normal (mesma msg);
+                          |                              | 2. cliente paga no Pix
+                          |                              |    do dono (PIX_KEY);
+                          |                              | 3. dono confere o pix
+                          |                              |    no app do banco e
+                          |                              |    roda /pago <id>;
+                          |                              | 4. segue /entregue.
+                          |                              | (fluxo igual ao antigo)
+----------------------------------------------------------------------------
+3. Render fora / deploy  | Bot nao responde no         | 1. Atender no WhatsApp/
+   quebrado/24h limits   | Telegram.                    |    Telegram direto com
+                          |                              |    o dono e criar o
+                          |                              |    pedido na PLANILHA
+                          |                              |    (status pagamento_
+                          |                              |    pendente);
+                          |                              | 2. Pix manual do dono;
+                          |                              | 3. trade e /entregue
+                          |                              |    manual na planilha.
+   PREVENCAO: ver        |                              |
+   manual.txt secao      |                              |
+   "DEPLOY" para subir   |                              |
+   de novo (ou Coolify/  |                              |
+   WSL2 quando quiser).  |                              |
+----------------------------------------------------------------------------
+4. Google Gemini fora    | IA nao responde             | Bot tem fallback de
+   (quota/erro)          | naturalmente.                | modelos (3.6 -> 3-flash
+                          |                              | -> 3.5). Se tudo
+                          |                              | falhar: acionar o
+                          |                              | dono (comando /vendedor)
+                          |                              | e atender manual.
+----------------------------------------------------------------------------
+5. Telegram API/Token    | Bot mudo.                    | 1. Rotacionar token no
+   problema               |                              |    BotFather; 2. trocar
+                          |                              |    no .env e no Render;
+                          |                              | 3. setWebhook de novo.
+                          |                              |    Durante isso, atender
+                          |                              |    manual (caso 3).
+----------------------------------------------------------------------------
+6. Banco do cliente /    | Pagamento confirmado mas não | Atender manual com
+   trade complicado      | entregue.                     | combinado de horario,
+                          |                              | anotar em observacoes.
+----------------------------------------------------------------------------
+
+COMO A PLANILHA AJUDA (registro de verdade):
+  - Enquanto o Plano A estiver de pe, o /dashboard do Supabase e a fonte;
+    a planilha vai ser preenchida automaticamente (estudo v1.8.0, via
+    Apps Script/API guardando o dado no Supabase).
+  - Se cair algo dos casos 2, 3 ou 5, a planilha vira o REGISTRO MANUAL:
+    preencha status manualmente (pagamento_pendente -> pago -> entregue),
+    data_pagamento/data_entrega e o id (ou um numero de controle seu).
+  - No fim do dia, se a planilha tiver venda, o dono a lança tambem no
+    /dashboard quando o sistema voltar (se nao tiver dado automatico).
+
+VALIDADOR DE STATUS (usar nesta ordem):
+  lead -> interesse -> pagamento_pendente -> pago -> entregue -> cancelado.
+
+SEGURANCA (SEC-001):
+  - A planilha tem dados de clientes: compartilhamento RESTRITO/limitado
+    ao dono. Nunca deixar "link aberto" so circulando nem colar tokens/chaves.
+  - Nunca colocar valor de chave/token AQUI nem em qualquer outro arquivo
+    versionado. Valores ficam so no .env local + Render.
+========================================================================

@@ -50,7 +50,7 @@ Versão atual do bot: 1.7.0.
 - Defesa contra spam: rate limit por chat (máx. ~5 mensagens em 12s) com resposta única; protege custo da IA e fluxos.
 - Extração do char usa stop-words (mundo, pagamento, pix, etc.) para não engolir palavras seguintes.
 - Pedido de e-mail do Pix expira em 30 min se o cliente não responder (limpeza do estado em memória).
-- Fase C (divulgação) VETADA pelo dono até tudo ficar ajustado. Controle de clientes será via Google Sheets online (modelo em planilha-clientes/, importar TEMPLATE_CLIENTES.csv no Google Sheets); automação de alimentação a partir do Supabase fica para estudo na v1.8.0.
+- Fase C (divulgação) VETADA pelo dono até tudo ficar ajustado. Controle de clientes será via Google Sheets online (modelo em planilha-clientes/: TEMPLATE_CLIENTES_v2.csv recomendado + COMO_USAR_GOOGLE_SHEETS.txt; dono já importou/criou a planilha, ID 1CAjZTzAPkkhDXfIJrjUDg6aUVYxk6wW5HjuZpN0wRfU, acesso de leitura usado p/ mapear a estrutura). Plano B documentado em planilha-clientes/PLANO_B.txt (operação manual não para: fallback Supabase→pedidos.json já no código; MP falha→Pix manual via /pago; Render/Gemini/Telegram falha→atendimento manual + planilha como registro).
 
 ## Testes feitos (09/09/2026)
 

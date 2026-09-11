@@ -1,37 +1,45 @@
 ========================================================================
 GOOGLE SHEETS - PLANILHA DE CLIENTES (BAPZX Tibia Coins)
 ========================================================================
-Criado em: 11/09/2026
-Arquivo modelo: TEMPLATE_CLIENTES.csv (mesma pasta)
+Criado em: 11/09/2026 | Atualizado: 11/09/2026 (v2 + Plano B)
+Arquivos modelo (mesma pasta):
+  TEMPLATE_CLIENTES.csv      -> versao simples (importou a primeira vez)
+  TEMPLATE_CLIENTES_v2.csv   -> versao completa (RECOMENDADA, ve colunas abaixo)
+  PLANO_B.txt                -> o que fazer se o Plano A (bot/MP/Render) falhar
 
 1) IMPORTAR O TEMPLATE (uma vez so)
    1. Acesse https://sheets.new (cria planilha nova no seu Drive).
-   2. Menu: Arquivo -> Importar -> Upload -> escolher TEMPLATE_CLIENTES.csv.
-   3. Em "Importar local": marque "Substituir planilha" (ou "Criar nova
-      planilha" se preferir outra) -> Import data.
+   2. Menu: Arquivo -> Importar -> Upload -> escolher TEMPLATE_CLIENTES_v2.csv.
+   3. Em "Importar local": marque "Substituir planilha" -> Import data.
    4. Renomeie para algo tipo "Clientes BAPZX Tibia Coins".
    5. Apague a linha de exemplo (linha 2).
+   (Se ja tinha importado a v1: baixe a v2 e refaca o import aplicado.)
 
 2) COLUNAS (o que preencher)
-   data          -> dia do contato (AAAA/MM/DD ou como preferir)
-   cliente       -> nome/identificacao do lead ou cliente
-   contato       -> @telegram, telefone ou outro canal
-   origem        -> de onde veio: Landing (bot) | Comunidade/Grupo |
-                    Indicacao | Amigo | Outro
-   mundo         -> servidor onde o char joga (ex.: Ferobra, Pacera)
-   char          -> nome do personagem que recebe as Tibia Coins
-   quantidade_tc -> quanto comprou/quer comprar
-   preco         -> valor em R$ (tabela oficial ou calculado)
-   status        -> lead | interesse | pagamento_pendente | pago |
-                    entregue | cancelado
-   id_pedido     -> numero do pedido no Supabase/backup (do /pedidos)
-   observacoes   -> anotacoes livres (horario de trade, preferencias)
+   data            -> dia do contato (AAAA/MM/DD ou como preferir)
+   cliente         -> nome/identificacao do lead ou cliente
+   contato         -> @telegram, telefone ou outro canal
+   origem          -> de onde veio: Landing (bot) | Comunidade/Grupo |
+                      Indicacao | Amigo | Outro
+   mundo           -> servidor onde o char joga (ex.: Ferobra, Pacera)
+   char            -> nome do personagem que recebe as Tibia Coins
+   quantidade_tc   -> quanto comprou/quer comprar
+   preco           -> valor em R$ (tabela oficial ou calculado)
+   tipo_pagamento  -> "MP Pix" (automatico, Mercado Pago) ou
+                      "Pix manual" (chave do dono, Plano B)
+   data_pagamento  -> quando o pagamento foi confirmado
+   data_entrega    -> quando houve o trade/entrega
+   status          -> lead | interesse | pagamento_pendente | pago |
+                      entregue | cancelado
+   id_pedido       -> numero do pedido no Supabase/backup (do /pedidos)
+   observacoes     -> anotacoes livres (horario de trade, preferencias)
 
 3) DEIXAR MAIS FACIL (opcional, 2 min)
    - Status e Origem: selecione as colunas -> Dados -> Validacao de dados ->
      lista de valores (guia acima). Assim voce so escolhe, sem errar.
    - Congele a linha 1 (Exibir -> Congelar -> 1 linha).
-   - Formato da coluna "preco" em moeda / "quantidade_tc" em numero.
+   - Formato: coluna "preco" em moeda / "quantidade_tc" em numero
+     / colunas de data como Data.
 
 4) AUTOMACAO FUTURA (estudar na v1.8.0)
    O bot ja grava pedidos no Supabase. Ideia: o Supabase ou um script
@@ -39,9 +47,16 @@ Arquivo modelo: TEMPLATE_CLIENTES.csv (mesma pasta)
    venda (status pago/entregue). Enquanto nao implementamos, preencha
    manualmente e no /dashboard (autenticado) veja o faturado real.
 
-5) SEGURANCA (SEC-001)
+5) PLANO B (operacao nao para) - LEIA PLANO_B.txt
+   Se o Mercado Pago, o Render ou o Telegram falharem, atenda manualmente
+   e USE ESTA PLANILHA como registro oficial dos pedidos ate o sistema
+   voltar. Regra de status sempre nesta ordem:
+   lead -> interesse -> pagamento_pendente -> pago -> entregue -> cancelado.
+
+6) SEGURANCA (SEC-001)
    NAO cole tokens/chaves nesta planilha nem compartilhe publicamente.
    O compartilhamento deve ser "Restrito" (somente seu email) para evitar
    vazar dados de clientes e faturamento (regra de confidencialidade do
-   MEMORIA_SEGURANCA.md).
+   MEMORIA_SEGURANCA.md). Tire qualquer "link aberto" quando nao precisar
+   mais de leitura externa.
 ========================================================================

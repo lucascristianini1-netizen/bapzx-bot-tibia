@@ -1,0 +1,2 @@
+data,cliente,contato,origem,mundo,char,quantidade_tc,preco,tipo_pagamento,data_pagamento,data_entrega,status,id_pedido,observacoes
+,Clientes,(@telegram ou tel),Origem da divulgacao,Mundo,Char,Ex.: 500,Ex.: 45,MP Pix ou Pix manual,Quando pagou,Quando entregou,lead,Ex.: 15,Horario de trade etc.
