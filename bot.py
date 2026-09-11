@@ -1,8 +1,10 @@
 import base64
+import html
 import json
 import os
 import re
 import sys
+import time
 import uuid
 from datetime import datetime
 
@@ -11,7 +13,7 @@ from flask import Flask, request
 
 from storage import OrderStore
 
-VERSION = "1.6.0"
+VERSION = "1.7.0"
 
 if sys.platform == "win32":
     try:
@@ -50,6 +52,13 @@ MP_ACCESS_TOKEN = load_env_key("MP_ACCESS_TOKEN")
 RENDER_URL = load_env_key("RENDER_URL") or "https://bapzx-bot-tibia.onrender.com"
 AWAITING_EMAIL = {}
 EMAIL_RE = re.compile(r"^[\w.+-]+@[\w-]+\.[\w.-]+$")
+CHAT_HISTORY = {}
+EMAIL_EXPIRY_SECONDS = 30 * 60
+CHAR_STOP_WORDS = {
+    "mundo", "world", "pagamento", "pix", "via", "em", "na", "no", "com",
+    "para", "pra", "e", "vou", "quero", "trade", "email", "e-mail", "depois",
+    "aguardando", "entrega", "sera", "vai",
+}
 MODELS = [
     "models/gemini-3.6-flash",
     "models/gemini-3-flash-preview",
@@ -74,6 +83,8 @@ HELP_TEXT = (
     "2. Quantidade de Tibia Coins\n"
     "3. Mundo\n"
     "4. Forma de pagamento (Pix)\n\n"
+    "Depois que eu confirmar o pedido, vou te pedir um e-mail para gerar "
+    "o QR Code do Pix na hora.\n\n"
     "Exemplo: quero comprar 500 tc, mundo pacera, char Teste, pagamento pix"
 )
 
@@ -122,6 +133,8 @@ def ask_ai(text):
         "- Nunca use asteriscos (*), negrito ou marcação de texto. Responda em texto simples.\n"
         "- Quando o cliente quiser comprar, peça/confirme os 4 dados obrigatórios:\n"
         "  nome do char, quantidade de Tibia Coins, mundo e forma de pagamento (Pix).\n"
+        "- O e-mail do cliente quem pede é o próprio sistema (depois de fechar o pedido);\n"
+        "  não peça e-mail na conversa da IA.\n"
         "- Para calcular o valor de uma quantidade de TC fora da tabela acima, use a "
         "proporção de que 1.000 TC custam R$ 90: multiplique a quantidade por 90, divida "
         "por 1.000 e mostre o cálculo passo a passo, terminando com o valor em Reais.\n"
@@ -175,6 +188,17 @@ def calc_price(tc):
     return f"R${value:,.2f}".replace(",", "X").replace(".", ",").replace("X", ".")
 
 
+def clean_char(raw):
+    partes = []
+    for word in raw.split():
+        if word in CHAR_STOP_WORDS:
+            break
+        partes.append(word)
+        if len(partes) == 4:
+            break
+    return " ".join(partes) or None
+
+
 def extract_order_details(text, pagamento=None):
     lower = text.lower()
     tc = parse_amount(lower)
@@ -188,7 +212,7 @@ def extract_order_details(text, pagamento=None):
         "preco": calc_price(tc) if tc else None,
         "pagamento": pagamento or ("Pix" if "pix" in lower else None),
         "mundo": mundo.group(1) if mundo else None,
-        "char": char.group(1).strip() if char else None,
+        "char": clean_char(char.group(1)) if char else None,
     }
 
 
@@ -315,6 +339,22 @@ def looks_like_order(text):
     return any(marker in lower for marker in markers)
 
 
+def rate_limited(chat_id):
+    now = time.time()
+    stamps = [t for t in CHAT_HISTORY.get(chat_id, []) if now - t < 12]
+    stamps.append(now)
+    CHAT_HISTORY[chat_id] = stamps
+    return len(stamps) > 5
+
+
+def dashboard_allowed():
+    expected = load_env_key("DASHBOARD_KEY")
+    if not expected:
+        return False
+    given = request.args.get("key") or request.headers.get("X-Dashboard-Key")
+    return given == expected
+
+
 app = Flask(__name__)
 STORE = OrderStore(
     pedidos_path(),
@@ -324,8 +364,97 @@ STORE = OrderStore(
 
 
 @app.route("/", methods=["GET"])
+def home():
+    return landing_page(), 200, {"Content-Type": "text/html; charset=utf-8"}
+
+
+@app.route("/health", methods=["GET"])
 def health():
     return f"bot ok v{VERSION}", 200
+
+
+def landing_page():
+    price_rows = "".join(
+        f"<tr><td>{value} TC</td><td class='price'>{price}</td></tr>"
+        for value, price in PRICES.items()
+    )
+    page = """<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>BAPZX Tibia Coins - Compre Tibia Coins rapidinho</title>
+<style>
+body { font-family: Arial, sans-serif; margin: 0; background: #0f172a; color: #e2e8f0; }
+.wrap { max-width: 720px; margin: 0 auto; padding: 24px; }
+header { text-align: center; padding: 40px 0 16px; }
+header h1 { margin: 0 0 8px; font-size: 28px; }
+header p { margin: 0; color: #94a3b8; font-size: 15px; }
+.badge { display: inline-block; background: #064e3b; color: #4ade80; border-radius: 999px;
+         padding: 4px 14px; font-size: 13px; margin-top: 12px; }
+.cta { text-align: center; margin: 24px 0; }
+.btn { display: inline-block; background: #2563eb; color: #fff; text-decoration: none;
+       padding: 14px 28px; border-radius: 10px; font-size: 17px; font-weight: bold; }
+.btn:hover { background: #1d4ed8; }
+.qr { margin-top: 14px; }
+section { background: #1e293b; border-radius: 12px; padding: 20px; margin: 20px 0; }
+section h2 { margin: 0 0 12px; font-size: 17px; }
+table { width: 100%; border-collapse: collapse; font-size: 15px; }
+th, td { text-align: left; padding: 8px 10px; border-bottom: 1px solid #334155; }
+th { color: #94a3b8; font-weight: normal; }
+.price { color: #4ade80; font-weight: bold; }
+ol { margin: 0; padding-left: 20px; line-height: 1.9; }
+.steps li b { color: #60a5fa; }
+.note { font-size: 13px; color: #94a3b8; margin-top: 10px; }
+footer { text-align: center; color: #64748b; font-size: 12px; padding: 24px 0; }
+</style>
+</head>
+<body>
+<div class="wrap">
+<header>
+<h1>BAPZX Tibia Coins</h1>
+<p>Compra de Tibia Coins rápida, segura e com pagamento via Pix.</p>
+<span class="badge">Entrega por trade in-game</span>
+</header>
+
+<div class="cta">
+<a class="btn" href="https://t.me/bapzx_bot">Comprar no Telegram</a>
+<div class="qr"><img src="https://api.qrserver.com/v1/create-qr-code/?size=200x200&data=https%3A%2F%2Ft.me%2Fbapzx_bot" alt="QR Code t.me/bapzx_bot" width="200" height="200"></div>
+</div>
+
+<section>
+<h2>Tabela de preços</h2>
+<table>
+<tr><th>Quantidade</th><th>Preço</th></tr>
+{price_rows}
+</table>
+<p class="note">Pagamento: Pix. Entrega: Trade in-game no seu char/mundo.</p>
+</section>
+
+<section>
+<h2>Como comprar</h2>
+<ol class="steps">
+<li>Abra o bot no Telegram: mesmo os preços acima, direto no <b>t.me/bapzx_bot</b>.</li>
+<li>Toque em <b>Iniciar</b> e informe seus 4 dados: char, quantidade de TC, mundo e pagamento (Pix).</li>
+<li>Confirme com o bot e informe um <b>e-mail</b> para gerar o QR Code do Pix na hora.</li>
+<li>Pague pelo QR, a confirmação chega sozinha e o combinado do <b>trade</b> é feito no chat.</li>
+</ol>
+</section>
+
+<section>
+<h2>Por que comprar com a BAPZX?</h2>
+<ul>
+<li>Pagamento automatico via Pix (confirmacao em segundos).</li>
+<li>Atendimento pelo Telegram, sem telas confusas.</li>
+<li>Entrega por trade dentro do jogo.</li>
+</ul>
+</section>
+
+<footer>BAPZX Tibia Coins &middot; v""" + VERSION + """</footer>
+</div>
+</body>
+</html>"""
+    return page.replace("{price_rows}", price_rows)
 
 
 @app.route("/webhook", methods=["POST"])
@@ -403,33 +532,42 @@ def webhook():
             return "ok", 200
 
     if chat_type == "private" and chat_id in AWAITING_EMAIL:
+        info = AWAITING_EMAIL.get(chat_id)
+        expired = bool(info) and time.time() - info["ts"] > EMAIL_EXPIRY_SECONDS
         candidate = text.strip()
-        if EMAIL_RE.match(candidate):
-            order_id = AWAITING_EMAIL.pop(chat_id)
-            order = STORE.find(order_id)
-            if not order:
-                send_message(chat_id, "Não encontrei seu pedido. Fale com um atendente usando /vendedor.")
-                return "ok", 200
-            ok, result = create_pix_charge(order, candidate)
-            if not ok:
-                send_message(chat_id, "Não consegui gerar o Pix agora. " + result)
-                send_message(chat_id, payment_text(order))
-            else:
-                send_qr(chat_id, result)
-                notify_owner_pix(result, order)
+        if expired:
+            AWAITING_EMAIL.pop(chat_id, None)
+            send_message(
+                chat_id,
+                "O tempo para gerar o Pix expirou. Faça um novo pedido ou use /vendedor.",
+            )
             return "ok", 200
-        send_message(
-            chat_id,
-            "Preciso do seu e-mail (ex.: nome@exemplo.com) para gerar o QR Code do Pix.",
-        )
+        if not EMAIL_RE.match(candidate):
+            send_message(
+                chat_id,
+                "Preciso do seu e-mail (ex.: nome@exemplo.com) para gerar o QR Code do Pix.",
+            )
+            return "ok", 200
+        AWAITING_EMAIL.pop(chat_id, None)
+        order = STORE.find(info["order_id"]) if info else None
+        if not order:
+            send_message(chat_id, "Não encontrei seu pedido. Fale com um atendente usando /vendedor.")
+            return "ok", 200
+        ok, result = create_pix_charge(order, candidate)
+        if not ok:
+            send_message(chat_id, "Não consegui gerar o Pix agora. " + result)
+            send_message(chat_id, payment_text(order))
+        else:
+            send_qr(chat_id, result)
+            notify_owner_pix(result, order)
         return "ok", 200
 
     if chat_type == "private" and looks_like_order(text):
         entry = build_order(chat_id, username, text)
         entry = save_order(entry)
         notify_owner(entry)
-        if MP_ACCESS_TOKEN:
-            AWAITING_EMAIL[chat_id] = entry["id"]
+        if MP_ACCESS_TOKEN and entry.get("id"):
+            AWAITING_EMAIL[chat_id] = {"order_id": entry["id"], "ts": time.time()}
             send_message(
                 chat_id,
                 "Pedido registrado! Já calculei o valor. Para gerar seu QR Code do Pix, "
@@ -437,6 +575,13 @@ def webhook():
             )
             return "ok", 200
         notify_payment(entry)
+
+    if rate_limited(chat_id):
+        send_message(
+            chat_id,
+            "Calma aí! Estou processando suas mensagens em sequência. Escreva aqui em instantes.",
+        )
+        return "ok", 200
 
     reply = ask_ai(text)
     send_message(chat_id, reply)
@@ -524,6 +669,8 @@ def dashboard_metrics(orders):
 
 @app.route("/dashboard", methods=["GET"])
 def dashboard():
+    if not dashboard_allowed():
+        return "Acesso restrito.", 401
     orders = STORE.list()
     faturado, por_dia, clientes, pagos = dashboard_metrics(orders)
 
@@ -619,7 +766,9 @@ th {{ color: #94a3b8; font-weight: normal; }}
 
 @app.route("/pedidos", methods=["GET"])
 def pedidos():
-    return f"{STORE.count()} pedido(s) registrado(s) | dashboard: /dashboard", 200
+    if not dashboard_allowed():
+        return "Acesso restrito.", 401
+    return f"{STORE.count()} pedido(s) registrado(s) | dashboard: /dashboard?key=SUA_CHAVE", 200
 
 
 def notify_owner(entry):
