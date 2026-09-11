@@ -19,6 +19,7 @@ VersÃ£o atual do bot: 1.10.0.
 - `MEMORIA_COMPRA.md` â€” regra de cÃ¡lculo de preÃ§o (1.000 TC = R$ 90).
 - `MEMORIA_SEGURANCA.md` â€” regra de seguranÃ§a absoluta: confidencialidade
   de cÃ³digo, dados e mÃ©tricas; leitura obrigatÃ³ria em toda sessÃ£o.
+- `MEMORIA_PENDENCIAS.md` â€” pendÃªncias e observaÃ§Ãµes (publish do Google app, itens do portfÃ³lio, Fase C, etc).
 
 ## Estrutura
 
