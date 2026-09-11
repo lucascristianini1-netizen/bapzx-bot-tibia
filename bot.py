@@ -13,7 +13,7 @@ from flask import Flask, request
 
 from storage import OrderStore
 
-VERSION = "1.10.0"
+VERSION = "1.10.1"
 
 BRAND = "BAPZX"
 STORE = "RUBINI COINS"
@@ -463,7 +463,6 @@ header p { margin: 0; color: #94a3b8; font-size: 15px; }
 .btn { display: inline-block; background: #2563eb; color: #fff; text-decoration: none;
        padding: 14px 28px; border-radius: 10px; font-size: 17px; font-weight: bold; }
 .btn:hover { background: #1d4ed8; }
-.qr { margin-top: 14px; }
 section { background: #1e293b; border-radius: 12px; padding: 20px; margin: 20px 0; }
 section h2 { margin: 0 0 12px; font-size: 17px; }
 table { width: 100%; border-collapse: collapse; font-size: 15px; }
@@ -486,7 +485,6 @@ footer { text-align: center; color: #64748b; font-size: 12px; padding: 24px 0; }
 
 <div class="cta">
 <a class="btn" href="https://t.me/bapzx_bot">Comprar no Telegram</a>
-<div class="qr"><img src="https://api.qrserver.com/v1/create-qr-code/?size=200x200&data=https%3A%2F%2Ft.me%2Fbapzx_bot" alt="QR Code t.me/bapzx_bot" width="200" height="200"></div>
 </div>
 
 <section>
