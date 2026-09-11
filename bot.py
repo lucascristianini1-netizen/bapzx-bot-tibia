@@ -13,7 +13,15 @@ from flask import Flask, request
 
 from storage import OrderStore
 
-VERSION = "1.8.0"
+VERSION = "1.9.0"
+
+BRAND = "BAPZX"
+STORE = "RUBINI COINS"
+SERVICE_NAME = "Serviço BAPZX"
+SERVICE_PRICE = "R$20 por hora"
+SERVICE_WHATSAPP_DISPLAY = "(19) 99181-3598"
+SERVICE_WHATSAPP_LINK = "https://wa.me/5519991813598"
+DELIVERY_NOTE = "Entrega: em até 10 minutos após a confirmação do pagamento, via trade no seu char."
 
 if sys.platform == "win32":
     try:
@@ -76,12 +84,15 @@ PRICES = {
 }
 
 HELP_TEXT = (
-    "Olá! Eu sou o atendente da BAPZX Tibia Coins. Veja o que posso fazer:\n\n"
-    "/preco - tabela de preços\n"
+    "Olá! Bem-vindo à BAPZX. Esta é a área de vendas online. Veja o que posso fazer:\n\n"
+    "🪙 RUBINI COINS (Tibia Coins)\n"
+    "  /preco - tabela de preços\n"
+    "  /quemsomos - conhecer a loja\n\n"
+    "💼 Serviços BAPZX\n"
+    "  /servico - Serviço especial (R$20 por hora)\n\n"
     "/vendedor - falar com um atendente humano\n"
-    "/quemsomos - conhecer a loja\n"
     "/ajuda - mostrar esta lista de novo\n\n"
-    "PARA COMPRAR, me informe estes 4 dados:\n"
+    "PARA COMPRAR TIBIA COINS, me informe estes 4 dados:\n"
     "1. Nome do char\n"
     "2. Quantidade de Tibia Coins\n"
     "3. Mundo\n"
@@ -92,18 +103,29 @@ HELP_TEXT = (
 )
 
 ABOUT_TEXT = (
-    "BAPZX Tibia Coins vende Tibia Coins de forma rápida e segura.\n"
+    "RUBINI COINS é a loja de Tibia Coins da BAPZX: venda rápida e segura.\n"
     "Pagamento via Pix e entrega por Trade in-game na sua world/char.\n"
-    "Use /preco para ver a tabela, /vendedor para falar com um atendente "
-    "humano e /ajuda para rever as opções."
+    "Entrega em até 10 minutos após a confirmação do pagamento.\n"
+    "Use /preco para ver a tabela, /servico para os serviços BAPZX, "
+    "/vendedor para falar com um atendente humano e /ajuda para rever as opções."
+)
+
+SERVICO_TEXT = (
+    f"💼 Serviço BAPZX\n\n"
+    f"Valor: {SERVICE_PRICE}\n"
+    "O que inclui: atendimento/assistência online dedicado (1 hora).\n\n"
+    "Para solicitar, entre em contato pelo WhatsApp:\n"
+    f"{SERVICE_WHATSAPP_DISPLAY}\n"
+    f"{SERVICE_WHATSAPP_LINK}\n\n"
+    "💳 Tibia Coins? Fale comigo aqui ou use /preco."
 )
 
 
 def price_table_text():
-    lines = ["TABELA DE PREÇOS - BAPZX Tibia Coins"]
+    lines = [f"TABELA DE PREÇOS - {STORE} (BAPZX)"]
     for value, price in PRICES.items():
         lines.append(f"  {value} TC - {price}")
-    lines.append("\nPagamento: Pix. Entrega: Trade in-game.")
+    lines.append("\nPagamento: Pix. Entrega: Trade in-game em até 10 min após o pagamento confirmado.")
     return "\n".join(lines)
 
 
@@ -255,6 +277,7 @@ def payment_text(entry):
     linhas.append("")
     linhas.append("Depois de pagar, me avise aqui: paguei")
     linhas.append("Quando o pagamento for confirmado, você recebe a confirmação aqui.")
+    linhas.append(DELIVERY_NOTE)
     return "\n".join(linhas)
 
 
@@ -329,7 +352,8 @@ def create_pix_charge(order, email):
     return True, data
 
 
-def send_qr(chat_id, data):
+def send_qr(chat_id, data, order=None):
+    order = order or {}
     transaction_data = ((data.get("point_of_interaction") or {}).get("transaction_data")) or {}
     img_b64 = transaction_data.get("qr_code_base64")
     if img_b64:
@@ -345,13 +369,20 @@ def send_qr(chat_id, data):
             print(f"[mp] erro ao enviar QR: {error}")
     qr_code = transaction_data.get("qr_code")
     linhas = [
-        "PIX GERADO",
+        "PIX GERADO - Pedido confirmado",
+        "",
+        "Resumo do seu pedido:",
+        f"  Tibia Coins: {order.get('tc') or '-'}",
+        f"  Valor: {order.get('preco') or '-'}",
+        f"  Mundo: {order.get('mundo') or '-'}",
+        f"  Char: {order.get('char') or '-'}",
         "",
         "Escaneie o QR Code acima ou use o código abaixo (copia e cola):",
         "",
         qr_code or "(código indisponível)",
         "",
         "Validade: 30 minutos.",
+        DELIVERY_NOTE,
         "O pagamento é confirmado automaticamente. Assim que bater, te aviso aqui!",
     ]
     send_message(chat_id, "\n".join(linhas))
@@ -419,7 +450,7 @@ def landing_page():
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>BAPZX Tibia Coins - Compre Tibia Coins rapidinho</title>
+<title>RUBINI COINS - BAPZX Tibia Coins rapidinho</title>
 <style>
 body { font-family: Arial, sans-serif; margin: 0; background: #0f172a; color: #e2e8f0; }
 .wrap { max-width: 720px; margin: 0 auto; padding: 24px; }
@@ -448,9 +479,9 @@ footer { text-align: center; color: #64748b; font-size: 12px; padding: 24px 0; }
 <body>
 <div class="wrap">
 <header>
-<h1>BAPZX Tibia Coins</h1>
-<p>Compra de Tibia Coins rápida, segura e com pagamento via Pix.</p>
-<span class="badge">Entrega por trade in-game</span>
+<h1>BAPZX &middot; RUBINI COINS</h1>
+<p>Área de vendas online da BAPZX. Compra de Tibia Coins rápida, segura e com pagamento via Pix.</p>
+<span class="badge">Entrega por trade in-game em até 10 min</span>
 </header>
 
 <div class="cta">
@@ -473,8 +504,16 @@ footer { text-align: center; color: #64748b; font-size: 12px; padding: 24px 0; }
 <li>Abra o bot no Telegram: mesmo os preços acima, direto no <b>t.me/bapzx_bot</b>.</li>
 <li>Toque em <b>Iniciar</b> e informe seus 4 dados: char, quantidade de TC, mundo e pagamento (Pix).</li>
 <li>Confirme com o bot e informe um <b>e-mail</b> para gerar o QR Code do Pix na hora.</li>
-<li>Pague pelo QR, a confirmação chega sozinha e o combinado do <b>trade</b> é feito no chat.</li>
+<li>Pague pelo QR e a confirmação chega sozinha; a <b>entrega é feita em até 10 minutos</b> via trade no seu char.</li>
 </ol>
+</section>
+
+<section>
+<h2>Serviço BAPZX (R$20 por hora)</h2>
+<p>Prestação de serviço/assistência online dedicada, hora a hora.</p>
+<p>Para solicitar, chame no WhatsApp:</p>
+<p><a class="btn" href="https://wa.me/5519991813598">Chamar no WhatsApp</a></p>
+<p class="note">(19) 99181-3598</p>
 </section>
 
 <section>
@@ -486,7 +525,7 @@ footer { text-align: center; color: #64748b; font-size: 12px; padding: 24px 0; }
 </ul>
 </section>
 
-<footer>BAPZX Tibia Coins &middot; v""" + VERSION + """</footer>
+<footer>BAPZX &middot; RUBINI COINS &middot; v""" + VERSION + """</footer>
 </div>
 </body>
 </html>"""
@@ -525,6 +564,10 @@ def webhook():
 
     if command == "/vendedor":
         reply_vendor(chat_id, username)
+        return "ok", 200
+
+    if command in ("/servico", "/servicos", "/service"):
+        send_message(chat_id, SERVICO_TEXT)
         return "ok", 200
 
     if command in ("/pago", "/entregue"):
@@ -594,7 +637,7 @@ def webhook():
             send_message(chat_id, "Não consegui gerar o Pix agora. " + result)
             send_message(chat_id, payment_text(order))
         else:
-            send_qr(chat_id, result)
+            send_qr(chat_id, result, order)
             notify_owner_pix(result, order)
         return "ok", 200
 
