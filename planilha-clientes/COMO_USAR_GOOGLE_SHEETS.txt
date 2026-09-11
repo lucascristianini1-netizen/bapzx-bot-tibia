@@ -1,0 +1,47 @@
+========================================================================
+GOOGLE SHEETS - PLANILHA DE CLIENTES (BAPZX Tibia Coins)
+========================================================================
+Criado em: 11/09/2026
+Arquivo modelo: TEMPLATE_CLIENTES.csv (mesma pasta)
+
+1) IMPORTAR O TEMPLATE (uma vez so)
+   1. Acesse https://sheets.new (cria planilha nova no seu Drive).
+   2. Menu: Arquivo -> Importar -> Upload -> escolher TEMPLATE_CLIENTES.csv.
+   3. Em "Importar local": marque "Substituir planilha" (ou "Criar nova
+      planilha" se preferir outra) -> Import data.
+   4. Renomeie para algo tipo "Clientes BAPZX Tibia Coins".
+   5. Apague a linha de exemplo (linha 2).
+
+2) COLUNAS (o que preencher)
+   data          -> dia do contato (AAAA/MM/DD ou como preferir)
+   cliente       -> nome/identificacao do lead ou cliente
+   contato       -> @telegram, telefone ou outro canal
+   origem        -> de onde veio: Landing (bot) | Comunidade/Grupo |
+                    Indicacao | Amigo | Outro
+   mundo         -> servidor onde o char joga (ex.: Ferobra, Pacera)
+   char          -> nome do personagem que recebe as Tibia Coins
+   quantidade_tc -> quanto comprou/quer comprar
+   preco         -> valor em R$ (tabela oficial ou calculado)
+   status        -> lead | interesse | pagamento_pendente | pago |
+                    entregue | cancelado
+   id_pedido     -> numero do pedido no Supabase/backup (do /pedidos)
+   observacoes   -> anotacoes livres (horario de trade, preferencias)
+
+3) DEIXAR MAIS FACIL (opcional, 2 min)
+   - Status e Origem: selecione as colunas -> Dados -> Validacao de dados ->
+     lista de valores (guia acima). Assim voce so escolhe, sem errar.
+   - Congele a linha 1 (Exibir -> Congelar -> 1 linha).
+   - Formato da coluna "preco" em moeda / "quantidade_tc" em numero.
+
+4) AUTOMACAO FUTURA (estudar na v1.8.0)
+   O bot ja grava pedidos no Supabase. Ideia: o Supabase ou um script
+   (Apps Script na planilha) preenche esta planilha automaticamente a cada
+   venda (status pago/entregue). Enquanto nao implementamos, preencha
+   manualmente e no /dashboard (autenticado) veja o faturado real.
+
+5) SEGURANCA (SEC-001)
+   NAO cole tokens/chaves nesta planilha nem compartilhe publicamente.
+   O compartilhamento deve ser "Restrito" (somente seu email) para evitar
+   vazar dados de clientes e faturamento (regra de confidencialidade do
+   MEMORIA_SEGURANCA.md).
+========================================================================

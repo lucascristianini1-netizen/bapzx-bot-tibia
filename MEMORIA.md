@@ -50,6 +50,7 @@ Versão atual do bot: 1.7.0.
 - Defesa contra spam: rate limit por chat (máx. ~5 mensagens em 12s) com resposta única; protege custo da IA e fluxos.
 - Extração do char usa stop-words (mundo, pagamento, pix, etc.) para não engolir palavras seguintes.
 - Pedido de e-mail do Pix expira em 30 min se o cliente não responder (limpeza do estado em memória).
+- Fase C (divulgação) VETADA pelo dono até tudo ficar ajustado. Controle de clientes será via Google Sheets online (modelo em planilha-clientes/, importar TEMPLATE_CLIENTES.csv no Google Sheets); automação de alimentação a partir do Supabase fica para estudo na v1.8.0.
 
 ## Testes feitos (09/09/2026)
 
