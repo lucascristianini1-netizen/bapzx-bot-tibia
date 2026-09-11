@@ -1,6 +1,6 @@
 ﻿# BAPZX Tibia Coins Bot â€” MemÃ³ria do projeto
 
-- Onde paramos (11/09, v1.11.1): Google Login VALIDADO AO VIVO - o dono logou com a conta Google e abriu /admin como admin (client_id do Web app + redirect URI https OK em modo teste; usuario de teste liberado no Audience). Client antigo (desktop, sem redirect) substituido. Area do cliente (/cliente) vai mostrar os pedidos feitos com o mesmo e-mail do login. Pendente: fazer pedido de teste real para ver o pedido no /cliente; trocar itens/prices placeholder do portfolio; finalizar Fase C/1a venda (vetada pelo dono).
+- Onde paramos (11/09, v1.11.1): Google Login VALIDADO AO VIVO - o dono logou com a conta Google e abriu /admin como admin (client_id do Web app + redirect URI https OK em modo teste; usuario de teste liberado no Audience). Client antigo (desktop, sem redirect) substituido. Area do cliente (/cliente) vai mostrar os pedidos feitos com o mesmo e-mail do login. Area do cliente VALIDADA com pedido de teste (id 17) visto em /cliente e /admin e removido em seguida. Pendente: trocar itens/prices placeholder do portfolio; finalizar Fase C/1a venda (vetada pelo dono).
 
 ## PROTOCOLO DE REENTRADA (atualizado no Ãºltimo check-out)
 
