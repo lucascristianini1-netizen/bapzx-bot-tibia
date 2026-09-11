@@ -13,12 +13,12 @@ from flask import Flask, request
 
 from storage import OrderStore
 
-VERSION = "1.9.0"
+VERSION = "1.9.1"
 
 BRAND = "BAPZX"
 STORE = "RUBINI COINS"
-SERVICE_NAME = "Serviço BAPZX"
-SERVICE_PRICE = "R$20 por hora"
+SERVICE_NAME = "Service BAPZX"
+SERVICE_PRICE = "US$20 por hora"
 SERVICE_WHATSAPP_DISPLAY = "(19) 99181-3598"
 SERVICE_WHATSAPP_LINK = "https://wa.me/5519991813598"
 DELIVERY_NOTE = "Entrega: em até 10 minutos após a confirmação do pagamento, via trade no seu char."
@@ -88,8 +88,8 @@ HELP_TEXT = (
     "🪙 RUBINI COINS (Tibia Coins)\n"
     "  /preco - tabela de preços\n"
     "  /quemsomos - conhecer a loja\n\n"
-    "💼 Serviços BAPZX\n"
-    "  /servico - Serviço especial (R$20 por hora)\n\n"
+    "💼 Service BAPZX\n"
+    "  /servico - Service BAPZX (US$20 por hora)\n\n"
     "/vendedor - falar com um atendente humano\n"
     "/ajuda - mostrar esta lista de novo\n\n"
     "PARA COMPRAR TIBIA COINS, me informe estes 4 dados:\n"
@@ -111,9 +111,9 @@ ABOUT_TEXT = (
 )
 
 SERVICO_TEXT = (
-    f"💼 Serviço BAPZX\n\n"
+    f"💼 Service BAPZX\n\n"
     f"Valor: {SERVICE_PRICE}\n"
-    "O que inclui: atendimento/assistência online dedicado (1 hora).\n\n"
+    "O que inclui: service dedicado no Tibia (1 hora, termos usuais do jogo).\n\n"
     "Para solicitar, entre em contato pelo WhatsApp:\n"
     f"{SERVICE_WHATSAPP_DISPLAY}\n"
     f"{SERVICE_WHATSAPP_LINK}\n\n"
@@ -509,8 +509,8 @@ footer { text-align: center; color: #64748b; font-size: 12px; padding: 24px 0; }
 </section>
 
 <section>
-<h2>Serviço BAPZX (R$20 por hora)</h2>
-<p>Prestação de serviço/assistência online dedicada, hora a hora.</p>
+<h2>Service BAPZX (US$20 por hora)</h2>
+<p>Service dedicado no Tibia, hora a hora (US$20/h).</p>
 <p>Para solicitar, chame no WhatsApp:</p>
 <p><a class="btn" href="https://wa.me/5519991813598">Chamar no WhatsApp</a></p>
 <p class="note">(19) 99181-3598</p>
