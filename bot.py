@@ -1,4 +1,4 @@
-import base64
+﻿import base64
 import html
 import json
 import os
@@ -13,15 +13,15 @@ from flask import Flask, request
 
 from storage import OrderStore
 
-VERSION = "1.9.1"
+VERSION = "1.10.0"
 
 BRAND = "BAPZX"
 STORE = "RUBINI COINS"
 SERVICE_NAME = "Service BAPZX"
-SERVICE_PRICE = "US$20 por hora"
+SERVICE_PRICE = "R$20 por hora"
 SERVICE_WHATSAPP_DISPLAY = "(19) 99181-3598"
 SERVICE_WHATSAPP_LINK = "https://wa.me/5519991813598"
-DELIVERY_NOTE = "Entrega: em até 10 minutos após a confirmação do pagamento, via trade no seu char."
+DELIVERY_NOTE = "Entrega: em atÃ© 10 minutos apÃ³s a confirmaÃ§Ã£o do pagamento, via trade no seu char."
 
 if sys.platform == "win32":
     try:
@@ -76,56 +76,56 @@ MODELS = [
     "models/gemini-3.5-flash",
 ]
 PRICES = {
-    100: "R$11,50",
+    100: "R$9,00",
     250: "R$22,50",
     500: "R$45",
     1000: "R$90",
-    2500: "R$230",
+    2500: "R$225",
 }
 
 HELP_TEXT = (
-    "Olá! Bem-vindo à BAPZX. Esta é a área de vendas online. Veja o que posso fazer:\n\n"
-    "🪙 RUBINI COINS (Tibia Coins)\n"
-    "  /preco - tabela de preços\n"
+    "OlÃ¡! Bem-vindo Ã  BAPZX. Esta Ã© a Ã¡rea de vendas online. Veja o que posso fazer:\n\n"
+    "ðŸª™ Rubini Coins (RC)\n"
+    "  /preco - tabela de preÃ§os\n"
     "  /quemsomos - conhecer a loja\n\n"
-    "💼 Service BAPZX\n"
-    "  /servico - Service BAPZX (US$20 por hora)\n\n"
+    "ðŸ’¼ Service BAPZX\n"
+    "  /servico - Service BAPZX (R$20 por hora)\n\n"
     "/vendedor - falar com um atendente humano\n"
     "/ajuda - mostrar esta lista de novo\n\n"
-    "PARA COMPRAR TIBIA COINS, me informe estes 4 dados:\n"
+    "PARA COMPRAR RC, me informe estes 4 dados:\n"
     "1. Nome do char\n"
-    "2. Quantidade de Tibia Coins\n"
+    "2. Quantidade de Rubini Coins (RC)\n"
     "3. Mundo\n"
     "4. Forma de pagamento (Pix)\n\n"
     "Depois que eu confirmar o pedido, vou te pedir um e-mail para gerar "
     "o QR Code do Pix na hora.\n\n"
-    "Exemplo: quero comprar 500 tc, mundo pacera, char Teste, pagamento pix"
+    "Exemplo: quero comprar 500 rc, mundo pacera, char Teste, pagamento pix"
 )
 
 ABOUT_TEXT = (
-    "RUBINI COINS é a loja de Rubini Coins (Tibia Coins) da BAPZX: venda rápida e segura.\n"
+    "RUBINI COINS Ã© a loja de Rubini Coins (RC) da BAPZX: venda rÃ¡pida e segura.\n"
     "Pagamento via Pix e entrega por Trade in-game na sua world/char.\n"
-    "Entrega em até 10 minutos após a confirmação do pagamento.\n"
-    "Use /preco para ver a tabela, /servico para os serviços BAPZX, "
-    "/vendedor para falar com um atendente humano e /ajuda para rever as opções."
+    "Entrega em atÃ© 10 minutos apÃ³s a confirmaÃ§Ã£o do pagamento.\n"
+    "Use /preco para ver a tabela, /servico para os services BAPZX, "
+    "/vendedor para falar com um atendente humano e /ajuda para rever as opÃ§Ãµes."
 )
 
 SERVICO_TEXT = (
-    f"💼 Service BAPZX\n\n"
+    f"ðŸ’¼ Service BAPZX\n\n"
     f"Valor: {SERVICE_PRICE}\n"
-    "O que inclui: service dedicado no Tibia (1 hora, termos usuais do jogo).\n\n"
+    "O que inclui: service dedicado a UP level no RubinOT (1 hora).\n\n"
     "Para solicitar, entre em contato pelo WhatsApp:\n"
     f"{SERVICE_WHATSAPP_DISPLAY}\n"
     f"{SERVICE_WHATSAPP_LINK}\n\n"
-    "💳 Tibia Coins? Fale comigo aqui ou use /preco."
+    "ðŸ’³ RC? Fale comigo aqui ou use /preco."
 )
 
 
 def price_table_text():
-    lines = [f"TABELA DE PREÇOS - {STORE} (BAPZX)"]
+    lines = [f"TABELA DE PREÃ‡OS - Rubini Coins (RC) - BAPZX"]
     for value, price in PRICES.items():
-        lines.append(f"  {value} TC - {price}")
-    lines.append("\nPagamento: Pix. Entrega: Trade in-game em até 10 min após o pagamento confirmado.")
+        lines.append(f"  {value} RC - {price}")
+    lines.append("\nPagamento: Pix. Entrega: Trade in-game em atÃ© 10 min apÃ³s o pagamento confirmado.")
     return "\n".join(lines)
 
 
@@ -134,7 +134,7 @@ def load_persona():
     if os.path.isfile(path):
         with open(path, "r", encoding="utf-8") as f:
             return f.read().strip()
-    return "Você é um assistente de atendimento em português do Brasil."
+    return "VocÃª Ã© um assistente de atendimento em portuguÃªs do Brasil."
 
 
 def clean_ai_text(text):
@@ -152,19 +152,19 @@ def ask_ai(text):
     tabela = price_table_text()
     prompt = (
         f"{persona}\n\n"
-        f"TABELA DE PREÇOS OFICIAL (use EXATAMENTE estes valores, nunca outros):\n"
+        f"TABELA DE PREÃ‡OS OFICIAL (use EXATAMENTE estes valores, nunca outros):\n"
         f"{tabela}\n\n"
         "REGRAS DE RESPOSTA:\n"
-        "- Nunca use asteriscos (*), negrito ou marcação de texto. Responda em texto simples.\n"
-        "- Quando o cliente quiser comprar, peça/confirme os 4 dados obrigatórios:\n"
-        "  nome do char, quantidade de Tibia Coins, mundo e forma de pagamento (Pix).\n"
-        "- O e-mail do cliente quem pede é o próprio sistema (depois de fechar o pedido);\n"
-        "  não peça e-mail na conversa da IA.\n"
+        "- Nunca use asteriscos (*), negrito ou marcaÃ§Ã£o de texto. Responda em texto simples.\n"
+        "- Quando o cliente quiser comprar, peÃ§a/confirme os 4 dados obrigatÃ³rios:\n"
+        "  nome do char, quantidade de RC, mundo e forma de pagamento (Pix).\n"
+        "- O e-mail do cliente quem pede Ã© o prÃ³prio sistema (depois de fechar o pedido);\n"
+        "  nÃ£o peÃ§a e-mail na conversa da IA.\n"
         "- Para calcular o valor de uma quantidade de TC fora da tabela acima, use a "
-        "proporção de que 1.000 TC custam R$ 90: multiplique a quantidade por 90, divida "
-        "por 1.000 e mostre o cálculo passo a passo, terminando com o valor em Reais.\n"
-        "- Quantidades que estão na tabela (100, 250, 500, 1.000, 2.500 TC) usam o valor "
-        "da tabela, sem recálculo.\n\n"
+        "proporÃ§Ã£o de que 1.000 RC custam R$ 90: multiplique a quantidade por 90, divida "
+        "por 1.000 e mostre o cÃ¡lculo passo a passo, terminando com o valor em Reais.\n"
+        "- Quantidades que estÃ£o na tabela (100, 250, 500, 1.000, 2.500 RC) usam o valor "
+        "da tabela, sem recÃ¡lculo.\n\n"
         f"Cliente: {text}"
     )
     last = None
@@ -258,10 +258,10 @@ def save_order(entry):
 
 
 def payment_text(entry):
-    linhas = ["PAGAMENTO DOS SEUS TIBIA COINS", ""]
+    linhas = ["PAGAMENTO DOS SEUS RC", ""]
     linhas.append("Resumo do seu pedido:")
     if entry.get("tc"):
-        linhas.append(f"  Tibia Coins: {entry['tc']}")
+        linhas.append(f"  RC: {entry['tc']}")
     if entry.get("preco"):
         linhas.append(f"  Valor: {entry['preco']}")
     if entry.get("mundo"):
@@ -273,10 +273,10 @@ def payment_text(entry):
         linhas.append(f"Para pagar via Pix, envie {entry.get('preco') or 'o valor'} para a chave Pix:")
         linhas.append(f"  {PIX_KEY}")
     else:
-        linhas.append("Para pagar via Pix, peça a chave Pix ao atendente com /vendedor.")
+        linhas.append("Para pagar via Pix, peÃ§a a chave Pix ao atendente com /vendedor.")
     linhas.append("")
     linhas.append("Depois de pagar, me avise aqui: paguei")
-    linhas.append("Quando o pagamento for confirmado, você recebe a confirmação aqui.")
+    linhas.append("Quando o pagamento for confirmado, vocÃª recebe a confirmaÃ§Ã£o aqui.")
     linhas.append(DELIVERY_NOTE)
     return "\n".join(linhas)
 
@@ -321,7 +321,7 @@ def create_pix_charge(order, email):
     if amount <= 0:
         return False, "pedido sem valor definido."
     tc = order.get("tc")
-    description = f"Tibia Coins {tc} TC - pedido {order['id']}" if tc else f"Tibia Coins - pedido {order['id']}"
+    description = f"Compra RC {tc} - pedido {order['id']}" if tc else f"Compra de RC - pedido {order['id']}"
     payload = {
         "transaction_amount": amount,
         "description": description,
@@ -361,7 +361,7 @@ def send_qr(chat_id, data, order=None):
             png = base64.b64decode(img_b64)
             requests.post(
                 f"{BASE}/sendPhoto",
-                data={"chat_id": chat_id, "caption": "QR Code Pix - BAPZX Tibia Coins"},
+                data={"chat_id": chat_id, "caption": "QR Code Pix - BAPZX RC"},
                 files={"photo": ("qr.png", png, "image/png")},
                 timeout=15,
             )
@@ -372,18 +372,18 @@ def send_qr(chat_id, data, order=None):
         "PIX GERADO - Pedido confirmado",
         "",
         "Resumo do seu pedido:",
-        f"  Tibia Coins: {order.get('tc') or '-'}",
+        f"  RC: {order.get('tc') or '-'}",
         f"  Valor: {order.get('preco') or '-'}",
         f"  Mundo: {order.get('mundo') or '-'}",
         f"  Char: {order.get('char') or '-'}",
         "",
-        "Escaneie o QR Code acima ou use o código abaixo (copia e cola):",
+        "Escaneie o QR Code acima ou use o cÃ³digo abaixo (copia e cola):",
         "",
-        qr_code or "(código indisponível)",
+        qr_code or "(cÃ³digo indisponÃ­vel)",
         "",
         "Validade: 30 minutos.",
         DELIVERY_NOTE,
-        "O pagamento é confirmado automaticamente. Assim que bater, te aviso aqui!",
+        "O pagamento Ã© confirmado automaticamente. Assim que bater, te aviso aqui!",
     ]
     send_message(chat_id, "\n".join(linhas))
 
@@ -442,7 +442,7 @@ def health():
 
 def landing_page():
     price_rows = "".join(
-        f"<tr><td>{value} TC</td><td class='price'>{price}</td></tr>"
+        f"<tr><td>{value} RC</td><td class='price'>{price}</td></tr>"
         for value, price in PRICES.items()
     )
     page = """<!DOCTYPE html>
@@ -450,7 +450,7 @@ def landing_page():
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>RUBINI COINS - BAPZX Tibia Coins rapidinho</title>
+<title>RUBINI COINS - BAPZX | Rubini Coins (RC)</title>
 <style>
 body { font-family: Arial, sans-serif; margin: 0; background: #0f172a; color: #e2e8f0; }
 .wrap { max-width: 720px; margin: 0 auto; padding: 24px; }
@@ -480,8 +480,8 @@ footer { text-align: center; color: #64748b; font-size: 12px; padding: 24px 0; }
 <div class="wrap">
 <header>
 <h1>BAPZX &middot; RUBINI COINS</h1>
-<p>Área de vendas online da BAPZX. Compra de Tibia Coins rápida, segura e com pagamento via Pix.</p>
-<span class="badge">Entrega por trade in-game em até 10 min</span>
+<p>Ãrea de vendas online da BAPZX. Compra de Rubini Coins (RC) rÃ¡pida, segura e com pagamento via Pix.</p>
+<span class="badge">Entrega por trade in-game em atÃ© 10 min</span>
 </header>
 
 <div class="cta">
@@ -490,9 +490,9 @@ footer { text-align: center; color: #64748b; font-size: 12px; padding: 24px 0; }
 </div>
 
 <section>
-<h2>Tabela de preços</h2>
+<h2>Tabela de preÃ§os</h2>
 <table>
-<tr><th>Quantidade</th><th>Preço</th></tr>
+<tr><th>Quantidade</th><th>PreÃ§o</th></tr>
 {price_rows}
 </table>
 <p class="note">Pagamento: Pix. Entrega: Trade in-game no seu char/mundo.</p>
@@ -501,16 +501,16 @@ footer { text-align: center; color: #64748b; font-size: 12px; padding: 24px 0; }
 <section>
 <h2>Como comprar</h2>
 <ol class="steps">
-<li>Abra o bot no Telegram: mesmo os preços acima, direto no <b>t.me/bapzx_bot</b>.</li>
-<li>Toque em <b>Iniciar</b> e informe seus 4 dados: char, quantidade de TC, mundo e pagamento (Pix).</li>
+<li>Abra o bot no Telegram: mesmo os preÃ§os acima, direto no <b>t.me/bapzx_bot</b>.</li>
+<li>Toque em <b>Iniciar</b> e informe seus 4 dados: char, quantidade de RC, mundo e pagamento (Pix).</li>
 <li>Confirme com o bot e informe um <b>e-mail</b> para gerar o QR Code do Pix na hora.</li>
-<li>Pague pelo QR e a confirmação chega sozinha; a <b>entrega é feita em até 10 minutos</b> via trade no seu char.</li>
+<li>Pague pelo QR e a confirmaÃ§Ã£o chega sozinha; a <b>entrega Ã© feita em atÃ© 10 minutos</b> via trade no seu char.</li>
 </ol>
 </section>
 
 <section>
-<h2>Service BAPZX (US$20 por hora)</h2>
-<p>Service dedicado no Tibia, hora a hora (US$20/h).</p>
+<h2>Service BAPZX (R$20 por hora)</h2>
+<p>Service dedicado a UP level no RubinOT (R$20/h).</p>
 <p>Para solicitar, chame no WhatsApp:</p>
 <p><a class="btn" href="https://wa.me/5519991813598">Chamar no WhatsApp</a></p>
 <p class="note">(19) 99181-3598</p>
@@ -546,7 +546,7 @@ def webhook():
     print(f"[{chat_id}] {text}")
 
     if text.strip() == "/id":
-        send_message(chat_id, f"Seu chat_id é: {chat_id}")
+        send_message(chat_id, f"Seu chat_id Ã©: {chat_id}")
         return "ok", 200
 
     command = text.strip().lower().split(" ", 1)[0]
@@ -573,40 +573,40 @@ def webhook():
     if command in ("/pago", "/entregue"):
         owner_chat = load_env_key("TELEGRAM_OWNER_CHAT_ID")
         if str(chat_id) != str(owner_chat):
-            send_message(chat_id, "Comando indisponível. Se precisar, use /vendedor.")
+            send_message(chat_id, "Comando indisponÃ­vel. Se precisar, use /vendedor.")
             return "ok", 200
         parts = text.strip().split()
         if len(parts) < 2:
-            send_message(chat_id, "Use o comando com o número do pedido. Ex.: /pago 12 ou /entregue 12")
+            send_message(chat_id, "Use o comando com o nÃºmero do pedido. Ex.: /pago 12 ou /entregue 12")
             return "ok", 200
         try:
             order_id = int(parts[1])
         except ValueError:
-            send_message(chat_id, "O número do pedido deve ser numérico. Ex.: /pago 12")
+            send_message(chat_id, "O nÃºmero do pedido deve ser numÃ©rico. Ex.: /pago 12")
             return "ok", 200
         if command == "/pago":
             result, order = apply_status(order_id, "pago", "pix_confirmado_em")
             if result == "nao encontrado":
-                send_message(chat_id, f"Não achei o pedido {order_id}.")
+                send_message(chat_id, f"NÃ£o achei o pedido {order_id}.")
                 return "ok", 200
             send_message(chat_id, f"Pedido {order_id} marcado como PAGO. Cliente avisado para combinar o trade.")
             if order:
                 send_message(
                     order["chat_id"],
                     "Seu pagamento foi CONFIRMADO. O atendente vai te chamar aqui para combinar o trade.\n"
-                    "Preparado o char certo e on-line no horário combinado.",
+                    "Preparado o char certo e on-line no horÃ¡rio combinado.",
                 )
             return "ok", 200
         if command == "/entregue":
             result, order = apply_status(order_id, "entregue", "entregue_em")
             if result == "nao encontrado":
-                send_message(chat_id, f"Não achei o pedido {order_id}.")
+                send_message(chat_id, f"NÃ£o achei o pedido {order_id}.")
                 return "ok", 200
             send_message(chat_id, f"Pedido {order_id} marcado como ENTREGUE. Cliente encerrado.")
             if order:
                 send_message(
                     order["chat_id"],
-                    "Tibia Coins entregues! Obrigado pela confiança e até a próxima. =)",
+                    "RC entregues! Obrigado pela confianÃ§a e atÃ© a prÃ³xima. =)",
                 )
             return "ok", 200
 
@@ -618,7 +618,7 @@ def webhook():
             AWAITING_EMAIL.pop(chat_id, None)
             send_message(
                 chat_id,
-                "O tempo para gerar o Pix expirou. Faça um novo pedido ou use /vendedor.",
+                "O tempo para gerar o Pix expirou. FaÃ§a um novo pedido ou use /vendedor.",
             )
             return "ok", 200
         if not EMAIL_RE.match(candidate):
@@ -630,11 +630,11 @@ def webhook():
         AWAITING_EMAIL.pop(chat_id, None)
         order = STORE.find(info["order_id"]) if info else None
         if not order:
-            send_message(chat_id, "Não encontrei seu pedido. Fale com um atendente usando /vendedor.")
+            send_message(chat_id, "NÃ£o encontrei seu pedido. Fale com um atendente usando /vendedor.")
             return "ok", 200
         ok, result = create_pix_charge(order, candidate)
         if not ok:
-            send_message(chat_id, "Não consegui gerar o Pix agora. " + result)
+            send_message(chat_id, "NÃ£o consegui gerar o Pix agora. " + result)
             send_message(chat_id, payment_text(order))
         else:
             send_qr(chat_id, result, order)
@@ -650,7 +650,7 @@ def webhook():
             AWAITING_EMAIL[chat_id] = {"order_id": entry["id"], "ts": time.time()}
             send_message(
                 chat_id,
-                "Pedido registrado! Já calculei o valor. Para gerar seu QR Code do Pix, "
+                "Pedido registrado! JÃ¡ calculei o valor. Para gerar seu QR Code do Pix, "
                 "me responda com o seu e-mail (ex.: nome@exemplo.com).",
             )
             return "ok", 200
@@ -659,7 +659,7 @@ def webhook():
     if rate_limited(chat_id):
         send_message(
             chat_id,
-            "Calma aí! Estou processando suas mensagens em sequência. Escreva aqui em instantes.",
+            "Calma aÃ­! Estou processando suas mensagens em sequÃªncia. Escreva aqui em instantes.",
         )
         return "ok", 200
 
@@ -704,12 +704,12 @@ def webhook_mp():
     send_message(
         order["chat_id"],
         "Seu pagamento foi CONFIRMADO. O atendente vai te chamar aqui para combinar o trade.\n"
-        "Deixa o char certo on-line no horário combinado.",
+        "Deixa o char certo on-line no horÃ¡rio combinado.",
     )
     if owner_chat:
-        linhas = ["💸 PAGAMENTO CONFIRMADO - PIX", f"Pedido: {order_id}"]
+        linhas = ["ðŸ’¸ PAGAMENTO CONFIRMADO - PIX", f"Pedido: {order_id}"]
         if order.get("tc"):
-            linhas.append(f"Tibia Coins: {order['tc']}")
+            linhas.append(f"RC: {order['tc']}")
         if order.get("preco"):
             linhas.append(f"Valor: {order['preco']}")
         if order.get("char"):
@@ -779,7 +779,7 @@ def dashboard():
             "<tr>"
             f"<td>{order.get('data') or '-'}</td>"
             f"<td>{order.get('char') or '-'}</td>"
-            f"<td>{order.get('tc') or '-'} TC</td>"
+            f"<td>{order.get('tc') or '-'} RC</td>"
             f"<td>{order.get('preco') or '-'}</td>"
             f"<td>{order.get('mundo') or '-'}</td>"
             f"<td>{order.get('pagamento') or '-'}</td>"
@@ -790,7 +790,7 @@ def dashboard():
     if not rows:
         rows = "<tr><td colspan='8' class='empty'>Nenhum pedido ainda</td></tr>"
     import html
-    title = html.escape("BAPZX Tibia Coins - Dashboard")
+    title = html.escape("BAPZX - Dashboard de vendas")
 
     page = f"""<!DOCTYPE html>
 <html lang="pt-BR">
@@ -826,7 +826,7 @@ th {{ color: #94a3b8; font-weight: normal; }}
 </style>
 </head>
 <body>
-<header><h1>BAPZX Tibia Coins - Dashboard de vendas</h1></header>
+<header><h1>BAPZX - Dashboard de vendas</h1></header>
 <main>
 <div class="cards">
 <div class="card"><div class="num">{total_brl}</div><div class="lbl">Faturado (pagos)</div></div>
@@ -834,8 +834,8 @@ th {{ color: #94a3b8; font-weight: normal; }}
 <div class="card"><div class="num">{len(orders)}</div><div class="lbl">Pedidos</div></div>
 <div class="card"><div class="num">{len(clientes)}</div><div class="lbl">Clientes</div></div>
 </div>
-<section><h2>Pedidos nos últimos 14 dias</h2>{''.join(bars)}</section>
-<section><h2>Últimos pedidos</h2>
+<section><h2>Pedidos nos Ãºltimos 14 dias</h2>{''.join(bars)}</section>
+<section><h2>Ãšltimos pedidos</h2>
 <table><tr><th>Quando</th><th>Char</th><th>Qtd</th><th>Valor</th><th>Mundo</th><th>Pagamento</th><th>Cliente</th><th>Status</th></tr>{rows}</table>
 </section>
 </main>
@@ -855,13 +855,13 @@ def notify_owner(entry):
     owner_chat = load_env_key("TELEGRAM_OWNER_CHAT_ID")
     if not owner_chat:
         return
-    lines = ["🛒 NOVO PEDIDO"]
-    lines.append(f"Usuário: {entry['usuario']}")
+    lines = ["ðŸ›’ NOVO PEDIDO"]
+    lines.append(f"UsuÃ¡rio: {entry['usuario']}")
     lines.append(f"ID: {entry['chat_id']}")
     if entry.get("tc"):
-        lines.append(f"Tibia Coins: {entry['tc']}")
+        lines.append(f"RC: {entry['tc']}")
     if entry.get("preco"):
-        lines.append(f"Preço: {entry['preco']}")
+        lines.append(f"PreÃ§o: {entry['preco']}")
     if entry.get("pagamento"):
         lines.append(f"Pagamento: {entry['pagamento']}")
     if entry.get("mundo"):
@@ -878,16 +878,16 @@ def notify_owner_pix(charge, entry):
     owner_chat = load_env_key("TELEGRAM_OWNER_CHAT_ID")
     if not owner_chat:
         return
-    linhas = ["🧾 PIX GERADO PARA O PEDIDO"]
+    linhas = ["ðŸ§¾ PIX GERADO PARA O PEDIDO"]
     linhas.append(f"Pedido: {entry.get('id')}")
     if entry.get("tc"):
-        linhas.append(f"Tibia Coins: {entry['tc']}")
+        linhas.append(f"RC: {entry['tc']}")
     if entry.get("preco"):
         linhas.append(f"Valor: {entry['preco']}")
     if entry.get("usuario"):
         linhas.append(f"Cliente: {entry['usuario']}")
     linhas.append(f"Mercado Pago id: {charge.get('id')}")
-    linhas.append("Aguardando pagamento (confirmação automática).")
+    linhas.append("Aguardando pagamento (confirmaÃ§Ã£o automÃ¡tica).")
     send_message(owner_chat, "\n".join(linhas))
 
 
@@ -895,14 +895,14 @@ def reply_vendor(chat_id, username):
     owner_chat = load_env_key("TELEGRAM_OWNER_CHAT_ID")
     send_message(
         chat_id,
-        "Você foi encaminhado a um atendente humano. Ele vai te chamar aqui "
+        "VocÃª foi encaminhado a um atendente humano. Ele vai te chamar aqui "
         "em instantes. Fique on-line e me diga se a demora passar de alguns minutos.",
     )
     if owner_chat:
         send_message(
             owner_chat,
-            "🙋 CLIENTE SOLICITOU ATENDENTE HUMANO\n"
-            f"Usuário: {username}\n"
+            "ðŸ™‹ CLIENTE SOLICITOU ATENDENTE HUMANO\n"
+            f"UsuÃ¡rio: {username}\n"
             f"ID: {chat_id}\n"
             "Responda este chat iniciando a conversa com o cliente.",
         )
