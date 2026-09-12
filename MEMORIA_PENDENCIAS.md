@@ -39,10 +39,11 @@ Atualizar sempre que algo mudar de estado.
     confirmação do personagem via RubiNot (v1.12.0). Tema do ROS (roleta) também
     se aplicável.
 
-- [ ] **Teste ao vivo (v1.12.0 no ar)** — fluxo com confirmação de personagem
-    via Telegram com personagem real; deploy já confirmado
-    (`/health` → `bot ok v1.12.0`). `RUBINOT_VALIDATE` default on (env do
-    Render não precisa de mudança).
+- [ ] **Teste ao vivo (v1.13.0)** — FEITO: webhook com secret validado, confirmacao manual
+    (SIM salva / NAO cancela) testada ao vivo com Inmortals e Rei Leao.
+    RubiNot 403 a partir do Render (IP de datacenter bloqueado) -> fallback
+    manual implementado. Pendente: publicar app Google, revisar manual.txt
+    e decidir se contata staff do RubiNot para liberar acesso API.
       Google Login, área do cliente `/cliente`, área admin `/admin`, webhook
       protegido por `TELEGRAM_WEBHOOK_SECRET`.
 
