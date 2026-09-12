@@ -53,6 +53,10 @@ Atualizar sempre que algo mudar de estado.
 
 ## Concluído (manter como histórico; reabrir se voltar a aparecer)
 
+- [x] Auditoria de segurança completa (12/09, v1.14.1) — SEM segredos vazados em
+      repos/histórico/backups/árvore; apenas dono como colaborador; cookie de
+      sessão com SECRET_KEY padrão rejeitado em prod; reforços aplicados:
+      throttle no `/webhook/mp` e allowlist de host no `/login`.
 - [x] Excluir client OAuth antigo (Desktop app `r2512...`) no Google — FEITO.
 - [x] `TELEGRAM_WEBHOOK_SECRET` ativo no Render — FEITO e verificado
       (webhook responde 403 sem o header correto).

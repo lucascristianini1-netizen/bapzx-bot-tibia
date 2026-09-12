@@ -14,7 +14,7 @@ from flask import Flask, request, redirect, session
 
 from storage import OrderStore
 
-VERSION = "1.14.0"
+VERSION = "1.14.1"
 
 BRAND = "BAPZX"
 STORE = "RUBINI COINS"
@@ -63,6 +63,14 @@ SHEET_TOKEN = load_env_key("SHEET_TOKEN")
 RENDER_URL = load_env_key("RENDER_URL") or "https://bapzx-bot-tibia.onrender.com"
 PORTFOLIO_URL = "https://bapzxdev.github.io/bapzx-portfolio/"
 TELEGRAM_WEBHOOK_SECRET = load_env_key("TELEGRAM_WEBHOOK_SECRET") or ""
+ALLOWED_HOSTS = {h.strip() for h in (load_env_key("ALLOWED_HOSTS") or "").split(",") if h.strip()}
+try:
+    _render_host = urlparse(RENDER_URL).hostname or ""
+    if _render_host:
+        ALLOWED_HOSTS.add(_render_host)
+except Exception:
+    pass
+ALLOWED_HOSTS.update({"localhost", "127.0.0.1"})
 GOOGLE_CLIENT_ID = load_env_key("GOOGLE_CLIENT_ID") or ""
 GOOGLE_CLIENT_SECRET = load_env_key("GOOGLE_CLIENT_SECRET") or ""
 ADMIN_EMAILS = set(
@@ -582,6 +590,29 @@ def rate_limited(chat_id):
     return len(stamps) > 5
 
 
+def _host_ok(host):
+    return (host or "").split(":")[0].lower() in ALLOWED_HOSTS
+
+
+MP_WEBHOOK_HITS = {}
+
+
+def _mp_rate_limited():
+    ip = (
+        request.headers.get("X-Forwarded-For", "").split(",")[0].strip()
+        or request.remote_addr
+        or "?"
+    )
+    now = time.time()
+    hits = [t for t in MP_WEBHOOK_HITS.get(ip, []) if now - t < 60]
+    hits.append(now)
+    MP_WEBHOOK_HITS[ip] = hits
+    if len(hits) > 60:
+        print(f"[mp] throttle no webhook de pagamento: {ip}")
+        return True
+    return False
+
+
 def dashboard_allowed():
     expected = load_env_key("DASHBOARD_KEY")
     if not expected:
@@ -941,6 +972,8 @@ def webhook():
 
 @app.route("/webhook/mp", methods=["POST"])
 def webhook_mp():
+    if _mp_rate_limited():
+        return "too many", 429
     payload = request.get_json(silent=True) or {}
     data = payload.get("data") or {}
     payment_id = data.get("id")
@@ -1242,6 +1275,8 @@ def _orders_rows(orders, with_actions=False):
 
 @app.route("/login")
 def login():
+    if not _host_ok(request.host):
+        return "Origem inválida.", 403
     if not GOOGLE_OAUTH_READY:
         return _page(
             "Login",
