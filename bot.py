@@ -14,7 +14,7 @@ from flask import Flask, request, redirect, session
 
 from storage import OrderStore
 
-VERSION = "1.12.2"
+VERSION = "1.13.0"
 
 BRAND = "BAPZX"
 STORE = "RUBINI COINS"
@@ -728,6 +728,28 @@ def webhook():
                 AWAITING_CHAR[chat_id] = {
                     "entry": dict(entry),
                     "player": player,
+                    "ts": time.time(),
+                }
+                send_message(chat_id, "\n".join(linhas))
+                return "ok", 200
+            if status == "erro":
+                linhas = [
+                    "Confirma este pedido antes de eu registrar?",
+                    f"  Char: {entry.get('char')}",
+                    f"  Mundo: {entry.get('mundo') or '-'}",
+                ]
+                if entry.get("tc"):
+                    linhas.append(f"  RC: {entry['tc']}")
+                if entry.get("preco"):
+                    linhas.append(f"  Valor: {entry['preco']}")
+                linhas.append("")
+                linhas.append(
+                    "Nao deu pra conferir no site do RubiNot agora, mas ao "
+                    "confirmar, os dados acima passam a valer. (sim / nao)"
+                )
+                AWAITING_CHAR[chat_id] = {
+                    "entry": dict(entry),
+                    "player": {},
                     "ts": time.time(),
                 }
                 send_message(chat_id, "\n".join(linhas))
