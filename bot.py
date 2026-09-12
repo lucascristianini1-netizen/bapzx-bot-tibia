@@ -14,7 +14,7 @@ from flask import Flask, request, redirect, session
 
 from storage import OrderStore
 
-VERSION = "1.14.1"
+VERSION = "1.14.2"
 
 BRAND = "BAPZX"
 STORE = "RUBINI COINS"
@@ -102,7 +102,8 @@ MENU_KEYBOARD = {
     "inline_keyboard": [
         [
             {"text": "Comprar RC", "callback_data": "menu_comprar"},
-            {"text": "/preco", "callback_data": "menu_preco"},
+            {"text": "/site", "callback_data": "menu_site"},
+            {"text": "/info", "callback_data": "menu_info"},
             {"text": "/vendedor", "callback_data": "menu_vendedor"},
         ]
     ]
@@ -127,30 +128,39 @@ PRICES = {
 }
 
 HELP_TEXT = (
-    "OlÃ¡! Bem-vindo Ã  BAPZX. Esta Ã© a Ã¡rea de vendas online. Veja o que posso fazer:\n\n"
-    "ðŸª™ Rubini Coins (RC)\n"
-    "  /preco - tabela de preÃ§os\n"
-    "  /quemsomos - conhecer a loja\n\n"
-    "ðŸ’¼ Service BAPZX\n"
-    "  /servico - Service BAPZX (R$20 por hora)\n\n"
-    "/vendedor - falar com um atendente humano\n"
-    "/ajuda - mostrar esta lista de novo\n\n"
-    "PARA COMPRAR RC, me informe estes 4 dados:\n"
+    "Boa tarde! Seja bem-vindo à BAPZX.\n\n"
+    "Comandos:\n"
+    "  /compra - ver pacotes de RC e comprar\n"
+    "  /site - acessar o site da loja\n"
+    "  /info - informações sobre a loja RUBINI COINS\n\n"
+    "Também oferecemos service no servidor do RubinOT a partir de R$20 hora.\n"
+    "Use /servico para saber mais ou /vendedor para falar com um atendente humano."
+)
+
+ABOUT_TEXT = (
+    "RUBINI COINS é a loja de Rubini Coins (RC) da BAPZX: venda rápida e segura.\n"
+    "Pagamento via Pix e entrega por Trade in-game na sua world/char.\n"
+    "Entrega em até 10 minutos após a confirmação do pagamento.\n"
+    "Use /compra para comprar RC, /site para o site da loja, "
+    "/servico para os services BAPZX, /vendedor para falar com um atendente humano "
+    "e /ajuda para rever as opções."
+)
+
+COMPRA_TEXT = (
+    "🛒 PARA COMPRAR RUBINI COINS (RC), me informe estes 4 dados:\n"
     "1. Nome do char\n"
     "2. Quantidade de Rubini Coins (RC)\n"
     "3. Mundo\n"
     "4. Forma de pagamento (Pix)\n\n"
-    "Depois que eu confirmar o pedido, vou te pedir um e-mail para gerar "
-    "o QR Code do Pix na hora.\n\n"
-    "Exemplo: quero comprar 500 rc, mundo pacera, char Teste, pagamento pix"
+    "Exemplo: quero comprar 500 rc, mundo pacera, char Teste, pagamento pix\n\n"
+    "Veja a tabela de preços com /preco. Entrega em até 10 minutos após o pagamento."
 )
 
-ABOUT_TEXT = (
-    "RUBINI COINS Ã© a loja de Rubini Coins (RC) da BAPZX: venda rÃ¡pida e segura.\n"
-    "Pagamento via Pix e entrega por Trade in-game na sua world/char.\n"
-    "Entrega em atÃ© 10 minutos apÃ³s a confirmaÃ§Ã£o do pagamento.\n"
-    "Use /preco para ver a tabela, /servico para os services BAPZX, "
-    "/vendedor para falar com um atendente humano e /ajuda para rever as opÃ§Ãµes."
+SITE_TEXT = (
+    "Site da BAPZX:\n"
+    f"{PORTFOLIO_URL}\n\n"
+    "Lá você encontra informações sobre a RUBINI COINS e os services BAPZX.\n"
+    "Para comprar RC, use /compra. Para falar com um atendente, use /vendedor."
 )
 
 SERVICO_TEXT = (
@@ -705,18 +715,14 @@ def webhook():
             send_message(cb_chat_id, price_table_text())
         elif cb_data == "menu_servico":
             send_message(cb_chat_id, SERVICO_TEXT)
+        elif cb_data == "menu_site":
+            send_message(cb_chat_id, SITE_TEXT)
+        elif cb_data == "menu_info":
+            send_message(cb_chat_id, ABOUT_TEXT)
         elif cb_data == "menu_vendedor":
             reply_vendor(cb_chat_id, cb_username)
         elif cb_data == "menu_comprar":
-            send_message(
-                cb_chat_id,
-                "PARA COMPRAR RC, me informe estes 4 dados:\n"
-                "1. Nome do char\n"
-                "2. Quantidade de Rubini Coins (RC)\n"
-                "3. Mundo\n"
-                "4. Forma de pagamento (Pix)\n\n"
-                "Exemplo: quero comprar 500 rc, mundo pacera, char Teste, pagamento pix",
-            )
+            send_message(cb_chat_id, COMPRA_TEXT)
         return "ok", 200
 
     message = update.get("message") or {}
@@ -744,6 +750,18 @@ def webhook():
 
     if command == "/quemsomos":
         send_message(chat_id, ABOUT_TEXT)
+        return "ok", 200
+
+    if command == "/info":
+        send_message(chat_id, ABOUT_TEXT)
+        return "ok", 200
+
+    if command == "/site":
+        send_message(chat_id, SITE_TEXT)
+        return "ok", 200
+
+    if command == "/compra":
+        send_message(chat_id, COMPRA_TEXT)
         return "ok", 200
 
     if command == "/vendedor":
