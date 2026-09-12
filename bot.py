@@ -14,7 +14,7 @@ from flask import Flask, request, redirect, session
 
 from storage import OrderStore
 
-VERSION = "1.14.2"
+VERSION = "1.14.3"
 
 BRAND = "BAPZX"
 STORE = "RUBINI COINS"
@@ -22,7 +22,7 @@ SERVICE_NAME = "Service BAPZX"
 SERVICE_PRICE = "R$20 por hora"
 SERVICE_WHATSAPP_DISPLAY = "(19) 99181-3598"
 SERVICE_WHATSAPP_LINK = "https://wa.me/5519991813598"
-DELIVERY_NOTE = "Entrega: em atÃ© 10 minutos apÃ³s a confirmaÃ§Ã£o do pagamento, via trade no seu char."
+DELIVERY_NOTE = 'Entrega: em até 10 minutos após a confirmação do pagamento, via trade no seu char.'
 
 if sys.platform == "win32":
     try:
@@ -164,21 +164,21 @@ SITE_TEXT = (
 )
 
 SERVICO_TEXT = (
-    f"ðŸ’¼ Service BAPZX\n\n"
+    f"\U0001f4bc Service BAPZX\n\n"
     f"Valor: {SERVICE_PRICE}\n"
     "O que inclui: service dedicado a UP level no RubinOT (1 hora).\n\n"
     "Para solicitar, entre em contato pelo WhatsApp:\n"
     f"{SERVICE_WHATSAPP_DISPLAY}\n"
     f"{SERVICE_WHATSAPP_LINK}\n\n"
-    "ðŸ’³ RC? Fale comigo aqui ou use /preco."
+    "\U0001f4b3 RC? Fale comigo aqui ou use /preco."
 )
 
 
 def price_table_text():
-    lines = [f"TABELA DE PREÃ‡OS - Rubini Coins (RC) - BAPZX"]
+    lines = [f"TABELA DE PREÇOS - Rubini Coins (RC) - BAPZX"]
     for value, price in PRICES.items():
         lines.append(f"  {value} RC - {price}")
-    lines.append("\nPagamento: Pix. Entrega: Trade in-game em atÃ© 10 min apÃ³s o pagamento confirmado.")
+    lines.append('\nPagamento: Pix. Entrega: Trade in-game em até 10 min após o pagamento confirmado.')
     return "\n".join(lines)
 
 
@@ -187,7 +187,7 @@ def load_persona():
     if os.path.isfile(path):
         with open(path, "r", encoding="utf-8") as f:
             return f.read().strip()
-    return "VocÃª Ã© um assistente de atendimento em portuguÃªs do Brasil."
+    return 'Você é um assistente de atendimento em português do Brasil.'
 
 
 def clean_ai_text(text):
@@ -205,19 +205,19 @@ def ask_ai(text):
     tabela = price_table_text()
     prompt = (
         f"{persona}\n\n"
-        f"TABELA DE PREÃ‡OS OFICIAL (use EXATAMENTE estes valores, nunca outros):\n"
+        f"TABELA DE PREÇOS OFICIAL (use EXATAMENTE estes valores, nunca outros):\n"
         f"{tabela}\n\n"
         "REGRAS DE RESPOSTA:\n"
-        "- Nunca use asteriscos (*), negrito ou marcaÃ§Ã£o de texto. Responda em texto simples.\n"
-        "- Quando o cliente quiser comprar, peÃ§a/confirme os 4 dados obrigatÃ³rios:\n"
+        '- Nunca use asteriscos (*), negrito ou marcação de texto. Responda em texto simples.\n'
+        '- Quando o cliente quiser comprar, peça/confirme os 4 dados obrigatórios:\n'
         "  nome do char, quantidade de RC, mundo e forma de pagamento (Pix).\n"
-        "- O e-mail do cliente quem pede Ã© o prÃ³prio sistema (depois de fechar o pedido);\n"
-        "  nÃ£o peÃ§a e-mail na conversa da IA.\n"
+        '- O e-mail do cliente quem pede é o próprio sistema (depois de fechar o pedido);\n'
+        '  não peça e-mail na conversa da IA.\n'
         "- Para calcular o valor de uma quantidade de TC fora da tabela acima, use a "
-        "proporÃ§Ã£o de que 1.000 RC custam R$ 90: multiplique a quantidade por 90, divida "
-        "por 1.000 e mostre o cÃ¡lculo passo a passo, terminando com o valor em Reais.\n"
-        "- Quantidades que estÃ£o na tabela (100, 250, 500, 1.000, 2.500 RC) usam o valor "
-        "da tabela, sem recÃ¡lculo.\n\n"
+        'proporção de que 1.000 RC custam R$ 90: multiplique a quantidade por 90, divida '
+        'por 1.000 e mostre o cálculo passo a passo, terminando com o valor em Reais.\n'
+        '- Quantidades que estão na tabela (100, 250, 500, 1.000, 2.500 RC) usam o valor '
+        'da tabela, sem recálculo.\n\n'
         f"Cliente: {text}"
     )
     last = None
@@ -264,13 +264,13 @@ def _finalizar_confirmacao_char(chat_id, confirmado):
     if expired:
         send_message(
             chat_id,
-            "O tempo para confirmar o personagem expirou. FaÃ§a um novo pedido ou use /vendedor.",
+            'O tempo para confirmar o personagem expirou. Faça um novo pedido ou use /vendedor.',
         )
         return
     if not confirmado:
         send_message(
             chat_id,
-            "Sem problemas! Pedido cancelado. Quando quiser, Ã© sÃ³ me mandar de novo "
+            'Sem problemas! Pedido cancelado. Quando quiser, é só me mandar de novo '
             "os dados certos ou usar /start.",
         )
         return
@@ -287,7 +287,7 @@ def _finalizar_confirmacao_char(chat_id, confirmado):
         AWAITING_EMAIL[chat_id] = {"order_id": entry["id"], "ts": time.time()}
         send_message(
             chat_id,
-            "Pedido registrado! JÃ¡ calculei o valor. Para gerar seu QR Code do Pix, "
+            'Pedido registrado! Já calculei o valor. Para gerar seu QR Code do Pix, '
             "me responda com o seu e-mail (ex.: nome@exemplo.com).",
         )
         return
@@ -308,7 +308,7 @@ def relatorio_mensal(ano=None, mes=None):
     valor = f"R$ {faturado:,.2f}"
     valor = valor.replace(",", "X").replace(".", ",").replace("X", ".")
     return (
-        f"ðŸ“Š RELATORIO MENSAL - {mes:02d}/{ano}\n"
+        f"📊 RELATORIO MENSAL - {mes:02d}/{ano}\n"
         f"  Pedidos: {total}\n"
         f"  Pagos: {len(pagos)}\n"
         f"  Entregues: {len(entregues)}\n"
@@ -459,10 +459,10 @@ def payment_text(entry):
         linhas.append(f"Para pagar via Pix, envie {entry.get('preco') or 'o valor'} para a chave Pix:")
         linhas.append(f"  {PIX_KEY}")
     else:
-        linhas.append("Para pagar via Pix, peÃ§a a chave Pix ao atendente com /vendedor.")
+        linhas.append('Para pagar via Pix, peça a chave Pix ao atendente com /vendedor.')
     linhas.append("")
     linhas.append("Depois de pagar, me avise aqui: paguei")
-    linhas.append("Quando o pagamento for confirmado, vocÃª recebe a confirmaÃ§Ã£o aqui.")
+    linhas.append('Quando o pagamento for confirmado, você recebe a confirmação aqui.')
     linhas.append(DELIVERY_NOTE)
     return "\n".join(linhas)
 
@@ -563,13 +563,13 @@ def send_qr(chat_id, data, order=None):
         f"  Mundo: {order.get('mundo') or '-'}",
         f"  Char: {order.get('char') or '-'}",
         "",
-        "Escaneie o QR Code acima ou use o cÃ³digo abaixo (copia e cola):",
+        'Escaneie o QR Code acima ou use o código abaixo (copia e cola):',
         "",
-        qr_code or "(cÃ³digo indisponÃ­vel)",
+        qr_code or '(código indisponível)',
         "",
         "Validade: 30 minutos.",
         DELIVERY_NOTE,
-        "O pagamento Ã© confirmado automaticamente. Assim que bater, te aviso aqui!",
+        'O pagamento é confirmado automaticamente. Assim que bater, te aviso aqui!',
     ]
     send_message(chat_id, "\n".join(linhas))
 
@@ -736,7 +736,7 @@ def webhook():
     print(f"[{chat_id}] {text}")
 
     if text.strip() == "/id":
-        send_message(chat_id, f"Seu chat_id Ã©: {chat_id}")
+        send_message(chat_id, f"Seu chat_id é: {chat_id}")
         return "ok", 200
 
     command = text.strip().lower().split(" ", 1)[0]
@@ -775,53 +775,53 @@ def webhook():
     if command in ("/pago", "/entregue"):
         owner_chat = load_env_key("TELEGRAM_OWNER_CHAT_ID")
         if str(chat_id) != str(owner_chat):
-            send_message(chat_id, "Comando indisponÃ­vel. Se precisar, use /vendedor.")
+            send_message(chat_id, 'Comando indisponível. Se precisar, use /vendedor.')
             return "ok", 200
         parts = text.strip().split()
         if len(parts) < 2:
-            send_message(chat_id, "Use o comando com o nÃºmero do pedido. Ex.: /pago 12 ou /entregue 12")
+            send_message(chat_id, 'Use o comando com o número do pedido. Ex.: /pago 12 ou /entregue 12')
             return "ok", 200
         try:
             order_id = int(parts[1])
         except ValueError:
-            send_message(chat_id, "O nÃºmero do pedido deve ser numÃ©rico. Ex.: /pago 12")
+            send_message(chat_id, 'O número do pedido deve ser numérico. Ex.: /pago 12')
             return "ok", 200
         if command == "/pago":
             result, order = apply_status(order_id, "pago", "pix_confirmado_em")
             if result == "nao encontrado":
-                send_message(chat_id, f"NÃ£o achei o pedido {order_id}.")
+                send_message(chat_id, f"Não achei o pedido {order_id}.")
                 return "ok", 200
             send_message(chat_id, f"Pedido {order_id} marcado como PAGO. Cliente avisado para combinar o trade.")
             if order:
                 send_message(
                     order["chat_id"],
                     "Seu pagamento foi CONFIRMADO. O atendente vai te chamar aqui para combinar o trade.\n"
-                    "Preparado o char certo e on-line no horÃ¡rio combinado.",
+                    'Preparado o char certo e on-line no horário combinado.',
                 )
             return "ok", 200
         if command == "/entregue":
             result, order = apply_status(order_id, "entregue", "entregue_em")
             if result == "nao encontrado":
-                send_message(chat_id, f"NÃ£o achei o pedido {order_id}.")
+                send_message(chat_id, f"Não achei o pedido {order_id}.")
                 return "ok", 200
             send_message(chat_id, f"Pedido {order_id} marcado como ENTREGUE. Cliente encerrado.")
             if order:
                 send_message(
                     order["chat_id"],
-                    "RC entregues! Obrigado pela confianÃ§a e atÃ© a prÃ³xima. =)",
+                    'RC entregues! Obrigado pela confiança e até a próxima. =)',
                 )
                 AWAITING_FEEDBACK[order["chat_id"]] = {"order_id": order["id"], "ts": time.time()}
                 send_message(
                     order["chat_id"],
                     "Tudo certo com a entrega? Se puder, responde aqui com uma nota de 1 a 5 "
-                    "e/ou um comentÃ¡rio rÃ¡pido (ex.: \"5, super rÃ¡pido\").",
+                    'e/ou um comentário rápido (ex.: "5, super rápido").',
                 )
             return "ok", 200
 
     if command == "/relatorio":
         owner_chat = load_env_key("TELEGRAM_OWNER_CHAT_ID")
         if str(chat_id) != str(owner_chat):
-            send_message(chat_id, "Comando indisponÃ­vel. Se precisar, use /vendedor.")
+            send_message(chat_id, 'Comando indisponível. Se precisar, use /vendedor.')
             return "ok", 200
         send_message(chat_id, relatorio_mensal())
         return "ok", 200
@@ -834,7 +834,7 @@ def webhook():
             AWAITING_EMAIL.pop(chat_id, None)
             send_message(
                 chat_id,
-                "O tempo para gerar o Pix expirou. FaÃ§a um novo pedido ou use /vendedor.",
+                'O tempo para gerar o Pix expirou. Faça um novo pedido ou use /vendedor.',
             )
             return "ok", 200
         if not EMAIL_RE.match(candidate):
@@ -846,7 +846,7 @@ def webhook():
         AWAITING_EMAIL.pop(chat_id, None)
         order = STORE.find(info["order_id"]) if info else None
         if not order:
-            send_message(chat_id, "NÃ£o encontrei seu pedido. Fale com um atendente usando /vendedor.")
+            send_message(chat_id, 'Não encontrei seu pedido. Fale com um atendente usando /vendedor.')
             return "ok", 200
         ok, result = create_pix_charge(order, candidate)
         try:
@@ -854,7 +854,7 @@ def webhook():
         except Exception as error:
             print(f"[auth] falha ao gravar e-mail do pedido: {error}")
         if not ok:
-            send_message(chat_id, "NÃ£o consegui gerar o Pix agora. " + result)
+            send_message(chat_id, 'Não consegui gerar o Pix agora. ' + result)
             send_message(chat_id, payment_text(order))
         else:
             send_qr(chat_id, result, order)
@@ -875,7 +875,7 @@ def webhook():
             AWAITING_FEEDBACK.pop(chat_id, None)
             send_message(
                 chat_id,
-                "O tempo para enviar o feedback expirou, mas obrigado pela confianÃ§a!",
+                'O tempo para enviar o feedback expirou, mas obrigado pela confiança!',
             )
             return "ok", 200
         fb_text = text.strip()
@@ -899,7 +899,7 @@ def webhook():
                     owner_chat,
                     f"⭐ FEEDBACK do pedido {order_id}:\n\"{fb_text}\"{score_part}",
                 )
-            send_message(chat_id, "Obrigado pelo feedback! Sua opiniÃ£o ajuda a melhorar.")
+            send_message(chat_id, 'Obrigado pelo feedback! Sua opinião ajuda a melhorar.')
             return "ok", 200
 
     if chat_type == "private" and looks_like_order(text):
@@ -909,7 +909,7 @@ def webhook():
             if status == "nao_encontrado":
                 send_message(
                     chat_id,
-                    f"NÃ£o encontrei o personagem {entry['char']} no RubiNot. "
+                    f"Não encontrei o personagem {entry['char']} no RubiNot. "
                     "Confere o nome e tenta de novo?",
                 )
                 return "ok", 200
@@ -924,18 +924,18 @@ def webhook():
                 if nivel:
                     linhas.append(f"  Level: {nivel}")
                 if vocacao:
-                    linhas.append(f"  VocaÃ§Ã£o: {vocacao}")
+                    linhas.append(f"  Vocação: {vocacao}")
                 if mundo:
                     linhas.append(f"  Mundo: {mundo}")
                 if entry.get("mundo") and mundo and entry["mundo"].lower() != mundo.lower():
                     linhas.append("")
                     linhas.append(
-                        f"VocÃª informou o mundo {entry['mundo']}, mas o personagem "
-                        f"estÃ¡ no mundo {mundo}. Confirmar mesmo assim? (sim / nÃ£o)"
+                        f"Você informou o mundo {entry['mundo']}, mas o personagem "
+                        f"está no mundo {mundo}. Confirmar mesmo assim? (sim / não)"
                     )
                 else:
                     linhas.append("")
-                    linhas.append("Confirma esse personagem para o pedido? (sim / nÃ£o)")
+                    linhas.append('Confirma esse personagem para o pedido? (sim / não)')
                 AWAITING_CHAR[chat_id] = {
                     "entry": dict(entry),
                     "player": player,
@@ -970,7 +970,7 @@ def webhook():
             AWAITING_EMAIL[chat_id] = {"order_id": entry["id"], "ts": time.time()}
             send_message(
                 chat_id,
-                "Pedido registrado! JÃ¡ calculei o valor. Para gerar seu QR Code do Pix, "
+                'Pedido registrado! Já calculei o valor. Para gerar seu QR Code do Pix, '
                 "me responda com o seu e-mail (ex.: nome@exemplo.com).",
             )
             return "ok", 200
@@ -979,7 +979,7 @@ def webhook():
     if rate_limited(chat_id):
         send_message(
             chat_id,
-            "Calma aÃ­! Estou processando suas mensagens em sequÃªncia. Escreva aqui em instantes.",
+            'Calma aí! Estou processando suas mensagens em sequência. Escreva aqui em instantes.',
         )
         return "ok", 200
 
@@ -1026,10 +1026,10 @@ def webhook_mp():
     send_message(
         order["chat_id"],
         "Seu pagamento foi CONFIRMADO. O atendente vai te chamar aqui para combinar o trade.\n"
-        "Deixa o char certo on-line no horÃ¡rio combinado.",
+        'Deixa o char certo on-line no horário combinado.',
     )
     if owner_chat:
-        linhas = ["ðŸ’¸ PAGAMENTO CONFIRMADO - PIX", f"Pedido: {order_id}"]
+        linhas = ["💸 PAGAMENTO CONFIRMADO - PIX", f"Pedido: {order_id}"]
         if order.get("tc"):
             linhas.append(f"RC: {order['tc']}")
         if order.get("preco"):
@@ -1155,8 +1155,8 @@ th {{ color: #94a3b8; font-weight: normal; }}
 <div class="card"><div class="num">{len(orders)}</div><div class="lbl">Pedidos</div></div>
 <div class="card"><div class="num">{len(clientes)}</div><div class="lbl">Clientes</div></div>
 </div>
-<section><h2>Pedidos nos Ãºltimos 14 dias</h2>{''.join(bars)}</section>
-<section><h2>Ãšltimos pedidos</h2>
+<section><h2>Pedidos nos últimos 14 dias</h2>{''.join(bars)}</section>
+<section><h2>Últimos pedidos</h2>
 <table><tr><th>Quando</th><th>Char</th><th>Qtd</th><th>Valor</th><th>Mundo</th><th>Pagamento</th><th>Cliente</th><th>Status</th></tr>{rows}</table>
 </section>
 </main>
@@ -1430,13 +1430,13 @@ def notify_owner(entry):
     owner_chat = load_env_key("TELEGRAM_OWNER_CHAT_ID")
     if not owner_chat:
         return
-    lines = ["ðŸ›’ NOVO PEDIDO"]
-    lines.append(f"UsuÃ¡rio: {entry['usuario']}")
+    lines = ["🛒 NOVO PEDIDO"]
+    lines.append(f"Usuário: {entry['usuario']}")
     lines.append(f"ID: {entry['chat_id']}")
     if entry.get("tc"):
         lines.append(f"RC: {entry['tc']}")
     if entry.get("preco"):
-        lines.append(f"PreÃ§o: {entry['preco']}")
+        lines.append(f"Preço: {entry['preco']}")
     if entry.get("pagamento"):
         lines.append(f"Pagamento: {entry['pagamento']}")
     if entry.get("mundo"):
@@ -1453,7 +1453,7 @@ def notify_owner_pix(charge, entry):
     owner_chat = load_env_key("TELEGRAM_OWNER_CHAT_ID")
     if not owner_chat:
         return
-    linhas = ["ðŸ§¾ PIX GERADO PARA O PEDIDO"]
+    linhas = ["🧾 PIX GERADO PARA O PEDIDO"]
     linhas.append(f"Pedido: {entry.get('id')}")
     if entry.get("tc"):
         linhas.append(f"RC: {entry['tc']}")
@@ -1462,7 +1462,7 @@ def notify_owner_pix(charge, entry):
     if entry.get("usuario"):
         linhas.append(f"Cliente: {entry['usuario']}")
     linhas.append(f"Mercado Pago id: {charge.get('id')}")
-    linhas.append("Aguardando pagamento (confirmaÃ§Ã£o automÃ¡tica).")
+    linhas.append('Aguardando pagamento (confirmação automática).')
     send_message(owner_chat, "\n".join(linhas))
 
 
@@ -1470,14 +1470,14 @@ def reply_vendor(chat_id, username):
     owner_chat = load_env_key("TELEGRAM_OWNER_CHAT_ID")
     send_message(
         chat_id,
-        "VocÃª foi encaminhado a um atendente humano. Ele vai te chamar aqui "
+        'Você foi encaminhado a um atendente humano. Ele vai te chamar aqui '
         "em instantes. Fique on-line e me diga se a demora passar de alguns minutos.",
     )
     if owner_chat:
         send_message(
             owner_chat,
             "ðŸ™‹ CLIENTE SOLICITOU ATENDENTE HUMANO\n"
-            f"UsuÃ¡rio: {username}\n"
+            f"Usuário: {username}\n"
             f"ID: {chat_id}\n"
             "Responda este chat iniciando a conversa com o cliente.",
         )

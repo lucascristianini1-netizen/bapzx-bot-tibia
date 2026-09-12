@@ -45,14 +45,19 @@ Atualizar sempre que algo mudar de estado.
     manual implementado. Pendente: publicar app Google, revisar manual.txt
     e decidir se contata staff do RubiNot para liberar acesso API.
 
-- [ ] **Testar ao vivo v1.14.0** — aplicar `supabase_migracao_v114.sql` no SQL Editor
-    do Supabase (colunas `feedback` e `feedback_score` na tabela `pedidos`);
-    depois testar via POST artesanal com secret: (1) botoes inline SIM/NAO e menu
-    [Comprar RC] [/preco] [/vendedor] no /start, (2) fluxo de feedback apos
-    /entregue, (3) comando /relatorio (dono).
+- [ ] **Teste ao vivo v1.14.0 (EM ANDAMENTO)** — migração `supabase_migracao_v114.sql`
+    APLICADA pelo dono e verificada (feedback/feedback_score OK via REST). Teste iniciado:
+    pedido TESTE-VIVO aceito no `/webhook` (200); callback `char_sim` retornou **HTTP 500**
+    em prod (sem exceção no repro local com mocks) — investigar com `save_order` real/logs
+    e retomar o fluxo: botoes inline SIM/NAO e menu [Comprar RC] [/site] [/info] no /start,
+    feedback pós-entrega, /relatorio (dono).
 
 ## Concluído (manter como histórico; reabrir se voltar a aparecer)
 
+- [x] Mojibake / dupla codificação nas mensagens do bot (12/09, v1.14.3) — CORRIGIDO.
+      Acentos e emojis apareciam errados no Telegram (ex.: "confirmaÃ§Ã£o"). Causa:
+      strings duplamente codificadas no bot.py. Audit cp1252 final: 0 literais restantes;
+      bytes hex conferidos. Testes verdes.
 - [x] Auditoria de segurança completa (12/09, v1.14.1) — SEM segredos vazados em
       repos/histórico/backups/árvore; apenas dono como colaborador; cookie de
       sessão com SECRET_KEY padrão rejeitado em prod; reforços aplicados:

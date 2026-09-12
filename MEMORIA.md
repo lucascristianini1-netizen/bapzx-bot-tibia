@@ -4,14 +4,14 @@
 
 ## PROTOCOLO DE REENTRADA (atualizado no Ãºltimo check-out)
 
-- Onde paramos: v1.14.2 (12/09 3a sessao): atualizacao da mensagem de boas-vindas a pedido do dono. HELP_TEXT agora e "Boa tarde! Seja bem-vindo a BAPZX." seguido dos comandos principais (/compra, /site, /info) e da mensagem de service a partir de R$20/h. Menu inline atualizado para [Comprar RC] [/site] [/info] [/vendedor]. Novos comandos: /compra (mostra instrucoes de compra), /site (mostra link do portfolio), /info (info da loja, alias de /quemsomos). Auditoria de seguranca da v1.14.1 continua aplicada (throttle /webhook/mp, allowlist de host /login). Pendente: aplicar supabase_migracao_v114.sql (colunas feedback); testar ao vivo botoes inline/feedback/relatorio; publish Google OAuth; Fase C/1a venda vetadas.
-- Proximo passo: aplicar supabase_migracao_v114.sql no Supabase e testar ao vivo o fluxo v1.14 (botoes inline, feedback pos-entrega, /relatorio) e conferir /health v1.14.2 no Render; depois publish Google OAuth e seguir para a 1a venda.
-- Arquivos tocados: bot.py (HELP_TEXT, ABOUT_TEXT, COMPRA_TEXT, SITE_TEXT, MENU_KEYBOARD, /compra /site /info handlers, callback menu_site/menu_info, VERSION 1.14.2), test_v170 (v1.14.2), MEMORIA.md, ROADMAP.
-- Bloqueios: nenhum. (RubiNot segue 403 no Render - contornado desde v1.13.0 com confirmacao manual.)
+- Onde paramos: v1.14.3 (12/09 4a sessao): corrigido o mojibake/dupla codificacao no bot.py (acentos e emojis apareciam errados no Telegram, ex.: "confirmação" virava "confirmaÃ§Ã£o" e emojis viravam "ðŸ›’"). Causa: strings com dupla codificacao UTF-8/cp1252 no arquivo. Correcao completa (audit cp1252: 0 literais restantes; bytes HEX conferidos em todas as mensagens: HELP_TEXT, ABOUT_TEXT, COMPRA_TEXT, SITE_TEXT, SERVICO_TEXT, NOVO PEDIDO, feedback). Migracao supabase_migracao_v114.sql (colunas feedback/feedback_score) APLICADA pelo dono e verificada via REST. Teste ao vivo iniciado: /webhook aceitou a ordem TESTE-VIVO (200); callback char_sim retornou HTTP 500 em prod (sem exception local; a investigar no retorno). RubiNot segue 403/Cloudflare a partir do Render -> fluxo de confirmacao manual (SIM/NAO) e esperado. Auditoria v1.14.1 continua valida. Pendente: investigar o 500 do char_sim ao vivo; concluir fluxo ao vivo (sim/email/pago/entregue/feedback/relatorio); publish Google OAuth; Fase C/1a venda vetadas.
+- Proximo passo: conferir /health v1.14.3 no Render; investigar o HTTP 500 do callback char_sim (repro com save_order real / logs Render) e retomar o teste ao vivo end-to-end; depois publish Google OAuth e a 1a venda.
+- Arquivos tocados: bot.py (correcao de encoding de ~58 literais (37 via tokenize + 15 via busca de bytes + 6 manuais), emojis do SERVICO/HELP/NOVO PEDIDO corrigidos, VERSION 1.14.3), test_v170 (1.14.3), MEMORIA.md, MEMORIA_PENDENCIAS.md, ROADMAP.
+- Bloqueios: nenhum. (RubiNot 403/Cloudflare no Render - contornado via confirmacao manual desde v1.13.0.)
 - Dias restantes: 10 de 15.
 
 Atendente IA de venda de Tibia Coins via Telegram (Flask webhook + Google Gemini).
-VersÃ£o atual do bot: 1.14.1.
+VersÃ£o atual do bot: 1.14.3.
 
 ## Leitura obrigatÃ³ria antes de alterar (memÃ³rias do projeto)
 
@@ -88,6 +88,7 @@ VersÃ£o atual do bot: 1.14.1.
 - v1.14.0 (12/09): 3 melhorias. (1) Botoes inline (SIM/NÃO de confirmacao + menu Comprar/\,/preco/\,/vendedor) com handler de callback_query. (2) Feedback pos-entrega (nota 1-5 e/ou comentario) salvo no pedido (colunas feedback, feedback_score) e avisado ao dono; migracao supabase_migracao_v114.sql pendente de aplicar. (3) Relatorio mensal com /relatorio (dono) + envio automatico dia 1. Testes: test_v170 (v1.14.0), test_rubinot_v112 (mocks com reply_markup), auth, planilha, parse_rc — todos verdes.
 - v1.14.1 (12/09): auditoria de seguranca (e-mails estranhos). Varredura completa (repos/historico/arvore/backup/.env) sem segredos reais vazados; colaborador unico = dono. Reforcos: throttle por IP no /webhook/mp (60/min, 429) e validacao de host no /login (ALLOWED_HOSTS). Cookie de sessao com SECRET_KEY padrao rejeitado em prod. Deps sem CVE. Testes verdes.
 - v1.14.2 (12/09): nova mensagem de boas-vindas a pedido do dono ("Boa tarde! Seja bem-vindo a BAPZX." + comandos /compra /site /info + service R$20/h). Novos comandos /compra (instrucoes de compra), /site (link do portfolio), /info (alias de /quemsomos). MENU_KEYBOARD atualizado: [Comprar RC] [/site] [/info] [/vendedor] (callbacks menu_site/menu_info). /preco e /servico mantidos. Testes verdes.
+- v1.14.3 (12/09): correcao do mojibake em producao (o dono reportou letras erradas ex.: "confirmaÃ§Ã£o"). Diagnosticado por bytes crus: o bot.py inteiro tinha strings com dupla codificacao (UTF-8 decodificado como texto e re-encodado). Correcao em 3 etapas: (1) 37 strings via tokenize+repr, (2) 15 via busca de bytes do padrao mojibake + substituicao com validacao de parse, (3) 6 manuais (emojis do SERVICO_TEXT, prompt da IA "TABELA DE PREÃ‡OS"->"PRECOS", dashboard "ultimos/ultimos", "estÃ© no mundo"). Audit final cp1252: 0 literais com dupla codificacao; bytes hex das mensagens (HELP/ABOUT/COMPRA/SITE/SERVICO/NOVO PEDIDO/feedback) conferidos corretos. Migracao supabase_migracao_v114.sql (feedback/feedback_score) aplicada pelo dono e verificada via GET /rest/v1/pedidos. Teste ao vivo em andamento: pedido TESTE-VIVO aceito no /webhook (200); callback char_sim deu HTTP 500 em prod (sem repro local; a investigar). Suites todas verdes (test_v170 v1.14.3, rubinot, auth, planilha, parse_rc).
 
 ## ConfiguraÃ§Ã£o Supabase (10/09/2026)
 
