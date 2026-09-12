@@ -14,7 +14,7 @@ from flask import Flask, request, redirect, session
 
 from storage import OrderStore
 
-VERSION = "1.12.1"
+VERSION = "1.12.2"
 
 BRAND = "BAPZX"
 STORE = "RUBINI COINS"
@@ -211,7 +211,7 @@ def pedidos_path():
 
 def parse_amount(text):
     m = re.search(
-        r"(\d{1,4}(?:[.,]\d{3})?)\s*(?:tc\b|t\b|tibias?\b|tibia\s+coins?\b|coins?\b|mil\b)",
+        r"(\d{1,4}(?:[.,]\d{3})?)\s*(?:tc\b|t\b|rc\b|rubini\s+coins?\b|tibias?\b|tibia\s+coins?\b|coins?\b|mil\b)",
         text,
         re.IGNORECASE,
     )
@@ -308,10 +308,11 @@ def rubinot_char_info(nome):
             if response.status_code == 404:
                 return None, "nao_encontrado"
             print(
-                f"[rubinot] char '{nome}' status {response.status_code} via {engine}: {str(response.text)[:200]}"
+                f"[rubinot] char '{nome}' status {response.status_code} via {engine}: {str(response.text)[:200]}",
+                flush=True,
             )
         except Exception as error:
-            print(f"[rubinot] char '{nome}' erro via {engine}: {error}")
+            print(f"[rubinot] char '{nome}' erro via {engine}: {error}", flush=True)
     return None, "erro"
 
 
