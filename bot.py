@@ -14,7 +14,7 @@ from flask import Flask, request, redirect, session
 
 from storage import OrderStore
 
-VERSION = "1.12.0"
+VERSION = "1.12.1"
 
 BRAND = "BAPZX"
 STORE = "RUBINI COINS"
@@ -78,6 +78,7 @@ EMAIL_EXPIRY_SECONDS = 30 * 60
 CHAR_EXPIRY_SECONDS = 15 * 60
 RUBINOT_CHAR_URL = "https://rubinot.com.br/api/characters/search"
 RUBINOT_VALIDATE = (load_env_key("RUBINOT_VALIDATE") or "1").lower() not in ("0", "false", "no", "off")
+RUBINOT_UA = "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/128.0 Safari/537.36"
 CHAR_YES_WORDS = {"sim", "confirmo", "confirmar", "pode", "pode confirmar", "ok", "isso", "afirmativo", "yes", "ss"}
 CHAR_STOP_WORDS = {
     "mundo", "world", "pagamento", "pix", "via", "em", "na", "no", "com",
@@ -273,25 +274,45 @@ def save_order(entry):
 
 
 def rubinot_char_info(nome):
+    engines = ["requests"]
     try:
-        response = requests.get(
-            RUBINOT_CHAR_URL,
-            params={"name": nome},
-            headers={"User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/128.0 Safari/537.36"},
-            timeout=12,
-        )
-        if response.status_code == 200:
-            data = response.json()
-            player = data.get("player") or {}
-            if player and player.get("name"):
-                return player, "ok"
-            return None, "nao_encontrado"
-        if response.status_code == 404:
-            return None, "nao_encontrado"
-        return None, "erro"
-    except Exception as error:
-        print(f"[rubinot] erro ao consultar char '{nome}': {error}")
-        return None, "erro"
+        import curl_cffi
+
+        engines.append("curl_cffi")
+    except Exception:
+        pass
+    for engine in engines:
+        try:
+            if engine == "curl_cffi":
+                from curl_cffi import requests as ccurl
+
+                response = ccurl.get(
+                    RUBINOT_CHAR_URL,
+                    params={"name": nome},
+                    impersonate="chrome",
+                    timeout=15,
+                )
+            else:
+                response = requests.get(
+                    RUBINOT_CHAR_URL,
+                    params={"name": nome},
+                    headers={"User-Agent": RUBINOT_UA},
+                    timeout=15,
+                )
+            if response.status_code == 200:
+                data = response.json()
+                player = data.get("player") or {}
+                if player and player.get("name"):
+                    return player, "ok"
+                return None, "nao_encontrado"
+            if response.status_code == 404:
+                return None, "nao_encontrado"
+            print(
+                f"[rubinot] char '{nome}' status {response.status_code} via {engine}: {str(response.text)[:200]}"
+            )
+        except Exception as error:
+            print(f"[rubinot] char '{nome}' erro via {engine}: {error}")
+    return None, "erro"
 
 
 def payment_text(entry):
