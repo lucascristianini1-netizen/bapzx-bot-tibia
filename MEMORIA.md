@@ -5,7 +5,7 @@
 ## PROTOCOLO DE REENTRADA (atualizado no Ãºltimo check-out)
 
 - Onde paramos: v1.12.0 - VALIDACAO DE PERSONAGEM no pedido (nova): antes de salvar, o bot consulta https://rubinot.com.br/api/characters/search?name=... e (a) se achar, mostra nome/level/vocacao/mundo reais do char e pede confirmacao (sim/nao); (b) se o mundo informado pelo cliente for diferente do mundo oficial do char, avisa e so fecha se o cliente confirmar; (c) se nao achar, bloqueia o pedido pedindo correcao do nome; (d) se a API falhar/der erro, segue o fluxo normal (nao trava venda). Confirmado, o pedido salva char/mundo OFICIAIS. Chamada com timeout 12s + User-Agent de navegador (funciona com requests normal, sem bloqueio). Toggle por env RUBINOT_VALIDATE (default ligado). Testes: nova suite test_rubinot_v112 (8 checagens) + test_v170 (v1.12.0) + test_auth_v111 todas verdes.
-- Proximo passo: testar ao vivo no Render + Telegram o fluxo com confirmacao (deploy pendente); revisar manual.txt com recursos novos; publish do app Google antes de clientes reais; Fase C/1a venda vetadas pelo dono.
+- Proximo passo: testar ao vivo no Telegram o fluxo de confirmacao de personagem (deploy v1.12.0 ja no ar, /health confirma); revisar manual.txt com recursos novos; publish do app Google antes de clientes reais; Fase C/1a venda vetadas pelo dono.
 - Arquivos tocados: bot.py (VERSION 1.12.0, RUBINOT_VALIDATE, AWAITING_CHAR, rubinot_char_info, fluxo de confirmacao no /webhook), MEMORIA.md, testes.
 - Bloqueios: nenhum.
 - Dias restantes: 10 de 15.

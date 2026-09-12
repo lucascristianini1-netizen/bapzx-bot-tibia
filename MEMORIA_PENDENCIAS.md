@@ -39,10 +39,10 @@ Atualizar sempre que algo mudar de estado.
     confirmação do personagem via RubiNot (v1.12.0). Tema do ROS (roleta) também
     se aplicável.
 
-- [ ] **Deploy da v1.12.0 no Render + teste ao vivo** — validar fluxo com
-    confirmação de personagem via Telegram com personagem real; verificar se a API
-    do RubiNot responde normalmente no Render (timeout 12s). Toggle
-    `RUBINOT_VALIDATE=1` na env do Render (já é default; não precisa forçar).
+- [ ] **Teste ao vivo (v1.12.0 no ar)** — fluxo com confirmação de personagem
+    via Telegram com personagem real; deploy já confirmado
+    (`/health` → `bot ok v1.12.0`). `RUBINOT_VALIDATE` default on (env do
+    Render não precisa de mudança).
       Google Login, área do cliente `/cliente`, área admin `/admin`, webhook
       protegido por `TELEGRAM_WEBHOOK_SECRET`.
 
