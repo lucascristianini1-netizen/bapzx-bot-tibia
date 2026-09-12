@@ -14,7 +14,7 @@ from flask import Flask, request, redirect, session
 
 from storage import OrderStore
 
-VERSION = "1.13.0"
+VERSION = "1.14.0"
 
 BRAND = "BAPZX"
 STORE = "RUBINI COINS"
@@ -80,6 +80,25 @@ RUBINOT_CHAR_URL = "https://rubinot.com.br/api/characters/search"
 RUBINOT_VALIDATE = (load_env_key("RUBINOT_VALIDATE") or "1").lower() not in ("0", "false", "no", "off")
 RUBINOT_UA = "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/128.0 Safari/537.36"
 CHAR_YES_WORDS = {"sim", "confirmo", "confirmar", "pode", "pode confirmar", "ok", "isso", "afirmativo", "yes", "ss"}
+AWAITING_FEEDBACK = {}
+FEEDBACK_EXPIRY_SECONDS = 7 * 24 * 60 * 60
+CONFIRM_KEYBOARD = {
+    "inline_keyboard": [
+        [
+            {"text": "SIM", "callback_data": "char_sim"},
+            {"text": "NÃO", "callback_data": "char_nao"},
+        ]
+    ]
+}
+MENU_KEYBOARD = {
+    "inline_keyboard": [
+        [
+            {"text": "Comprar RC", "callback_data": "menu_comprar"},
+            {"text": "/preco", "callback_data": "menu_preco"},
+            {"text": "/vendedor", "callback_data": "menu_vendedor"},
+        ]
+    ]
+}
 CHAR_STOP_WORDS = {
     "mundo", "world", "pagamento", "pix", "via", "em", "na", "no", "com",
     "para", "pra", "e", "vou", "quero", "trade", "email", "e-mail", "depois",
@@ -200,9 +219,99 @@ def ask_ai(text):
     return f"IA ocupada, tente em instantes. ({last})"
 
 
-def send_message(chat_id, text):
+def send_message(chat_id, text, reply_markup=None):
     payload = {"chat_id": chat_id, "text": text}
+    if reply_markup:
+        payload["reply_markup"] = reply_markup
     requests.post(f"{BASE}/sendMessage", json=payload, timeout=15)
+
+
+def answer_callback_query(callback_id, text=None):
+    payload = {"callback_query_id": callback_id}
+    if text:
+        payload["text"] = text
+    requests.post(f"{BASE}/answerCallbackQuery", json=payload, timeout=15)
+
+
+def edit_message_reply_markup(chat_id, message_id, reply_markup=None):
+    payload = {"chat_id": chat_id, "message_id": message_id}
+    if reply_markup:
+        payload["reply_markup"] = reply_markup
+    requests.post(f"{BASE}/editMessageReplyMarkup", json=payload, timeout=15)
+
+
+def _finalizar_confirmacao_char(chat_id, confirmado):
+    pending = AWAITING_CHAR.pop(chat_id, None) or {}
+    expired = bool(pending) and time.time() - pending.get("ts", 0) > CHAR_EXPIRY_SECONDS
+    if expired:
+        send_message(
+            chat_id,
+            "O tempo para confirmar o personagem expirou. FaÃ§a um novo pedido ou use /vendedor.",
+        )
+        return
+    if not confirmado:
+        send_message(
+            chat_id,
+            "Sem problemas! Pedido cancelado. Quando quiser, Ã© sÃ³ me mandar de novo "
+            "os dados certos ou usar /start.",
+        )
+        return
+    entry = pending.get("entry") or {}
+    player = pending.get("player") or {}
+    if player.get("name"):
+        entry["char"] = player["name"]
+    if player.get("world"):
+        entry["mundo"] = player["world"]
+    entry = save_order(entry)
+    notify_owner(entry)
+    push_to_sheet(entry)
+    if MP_ACCESS_TOKEN and entry.get("id"):
+        AWAITING_EMAIL[chat_id] = {"order_id": entry["id"], "ts": time.time()}
+        send_message(
+            chat_id,
+            "Pedido registrado! JÃ¡ calculei o valor. Para gerar seu QR Code do Pix, "
+            "me responda com o seu e-mail (ex.: nome@exemplo.com).",
+        )
+        return
+    notify_payment(entry)
+
+
+def relatorio_mensal(ano=None, mes=None):
+    now = datetime.now()
+    ano = ano or now.year
+    mes = mes or now.month
+    prefix = f"{ano:04d}-{mes:02d}"
+    pedidos = [o for o in STORE.list() if str(o.get("data") or "").startswith(prefix)]
+    total = len(pedidos)
+    pagos = [o for o in pedidos if o.get("status") == "pago"]
+    entregues = [o for o in pedidos if o.get("status") == "entregue"]
+    pendentes = [o for o in pedidos if o.get("status") == "pendente"]
+    faturado = sum(parse_brl(o.get("preco") or "0") for o in pagos)
+    valor = f"R$ {faturado:,.2f}"
+    valor = valor.replace(",", "X").replace(".", ",").replace("X", ".")
+    return (
+        f"ðŸ“Š RELATORIO MENSAL - {mes:02d}/{ano}\n"
+        f"  Pedidos: {total}\n"
+        f"  Pagos: {len(pagos)}\n"
+        f"  Entregues: {len(entregues)}\n"
+        f"  Pendentes: {len(pendentes)}\n"
+        f"  Faturado (pagos): {valor}"
+    )
+
+
+_last_relatorio_sent = None
+
+
+def _relatorio_automatico():
+    global _last_relatorio_sent
+    while True:
+        time.sleep(3600)
+        now = datetime.now()
+        if now.day == 1 and now.hour >= 9 and _last_relatorio_sent != (now.year, now.month):
+            owner = load_env_key("TELEGRAM_OWNER_CHAT_ID")
+            if owner:
+                send_message(owner, relatorio_mensal(now.year, now.month))
+            _last_relatorio_sent = (now.year, now.month)
 
 
 def pedidos_path():
@@ -541,6 +650,44 @@ def webhook():
         if not secrets.compare_digest(provided, TELEGRAM_WEBHOOK_SECRET):
             return "ok", 403
     update = request.get_json(silent=True) or {}
+    callback = update.get("callback_query")
+    if callback:
+        cb_data = callback.get("data") or ""
+        cb_message = callback.get("message") or {}
+        cb_chat = cb_message.get("chat") or {}
+        cb_chat_id = cb_chat.get("id")
+        cb_chat_type = cb_chat.get("type")
+        cb_msg_id = cb_message.get("message_id")
+        callback_id = callback.get("id")
+        cb_username = cb_message.get("from", {}).get("first_name") or cb_message.get("from", {}).get("username") or str(cb_chat_id)
+        if callback_id:
+            answer_callback_query(callback_id)
+        if cb_chat_type != "private" or not cb_chat_id:
+            return "ok", 200
+        print(f"[{cb_chat_id}] callback: {cb_data}")
+        if cb_data in ("char_sim", "char_nao"):
+            _finalizar_confirmacao_char(cb_chat_id, cb_data == "char_sim")
+            if cb_msg_id:
+                edit_message_reply_markup(cb_chat_id, cb_msg_id)
+            return "ok", 200
+        if cb_data == "menu_preco":
+            send_message(cb_chat_id, price_table_text())
+        elif cb_data == "menu_servico":
+            send_message(cb_chat_id, SERVICO_TEXT)
+        elif cb_data == "menu_vendedor":
+            reply_vendor(cb_chat_id, cb_username)
+        elif cb_data == "menu_comprar":
+            send_message(
+                cb_chat_id,
+                "PARA COMPRAR RC, me informe estes 4 dados:\n"
+                "1. Nome do char\n"
+                "2. Quantidade de Rubini Coins (RC)\n"
+                "3. Mundo\n"
+                "4. Forma de pagamento (Pix)\n\n"
+                "Exemplo: quero comprar 500 rc, mundo pacera, char Teste, pagamento pix",
+            )
+        return "ok", 200
+
     message = update.get("message") or {}
     text = message.get("text")
     chat_id = message.get("chat", {}).get("id")
@@ -557,7 +704,7 @@ def webhook():
 
     command = text.strip().lower().split(" ", 1)[0]
     if command in ("/start", "/inicio", "/ajuda", "/help"):
-        send_message(chat_id, HELP_TEXT)
+        send_message(chat_id, HELP_TEXT, reply_markup=MENU_KEYBOARD)
         return "ok", 200
 
     if command == "/preco":
@@ -614,7 +761,21 @@ def webhook():
                     order["chat_id"],
                     "RC entregues! Obrigado pela confianÃ§a e atÃ© a prÃ³xima. =)",
                 )
+                AWAITING_FEEDBACK[order["chat_id"]] = {"order_id": order["id"], "ts": time.time()}
+                send_message(
+                    order["chat_id"],
+                    "Tudo certo com a entrega? Se puder, responde aqui com uma nota de 1 a 5 "
+                    "e/ou um comentÃ¡rio rÃ¡pido (ex.: \"5, super rÃ¡pido\").",
+                )
             return "ok", 200
+
+    if command == "/relatorio":
+        owner_chat = load_env_key("TELEGRAM_OWNER_CHAT_ID")
+        if str(chat_id) != str(owner_chat):
+            send_message(chat_id, "Comando indisponÃ­vel. Se precisar, use /vendedor.")
+            return "ok", 200
+        send_message(chat_id, relatorio_mensal())
+        return "ok", 200
 
     if chat_type == "private" and chat_id in AWAITING_EMAIL:
         info = AWAITING_EMAIL.get(chat_id)
@@ -652,44 +813,45 @@ def webhook():
         return "ok", 200
 
     if chat_type == "private" and chat_id in AWAITING_CHAR:
-        pending = AWAITING_CHAR.get(chat_id) or {}
-        expired = bool(pending) and time.time() - pending.get("ts", 0) > CHAR_EXPIRY_SECONDS
-        if expired:
-            AWAITING_CHAR.pop(chat_id, None)
-            send_message(
-                chat_id,
-                "O tempo para confirmar o personagem expirou. FaÃ§a um novo pedido ou use /vendedor.",
-            )
-            return "ok", 200
         confirmacao = text.strip().lower().rstrip(".!")
         if confirmacao in CHAR_YES_WORDS:
-            AWAITING_CHAR.pop(chat_id, None)
-            entry = pending.get("entry") or {}
-            player = pending.get("player") or {}
-            if player.get("name"):
-                entry["char"] = player["name"]
-            if player.get("world"):
-                entry["mundo"] = player["world"]
-            entry = save_order(entry)
-            notify_owner(entry)
-            push_to_sheet(entry)
-            if MP_ACCESS_TOKEN and entry.get("id"):
-                AWAITING_EMAIL[chat_id] = {"order_id": entry["id"], "ts": time.time()}
-                send_message(
-                    chat_id,
-                    "Pedido registrado! JÃ¡ calculei o valor. Para gerar seu QR Code do Pix, "
-                    "me responda com o seu e-mail (ex.: nome@exemplo.com).",
-                )
-                return "ok", 200
-            notify_payment(entry)
-            return "ok", 200
-        AWAITING_CHAR.pop(chat_id, None)
-        send_message(
-            chat_id,
-            "Sem problemas! Pedido cancelado. Quando quiser, Ã© sÃ³ me mandar de novo "
-            "os dados certos ou usar /start.",
-        )
+            _finalizar_confirmacao_char(chat_id, True)
+        else:
+            _finalizar_confirmacao_char(chat_id, False)
         return "ok", 200
+
+    if chat_type == "private" and chat_id in AWAITING_FEEDBACK:
+        fb_info = AWAITING_FEEDBACK.get(chat_id) or {}
+        if time.time() - fb_info.get("ts", 0) > FEEDBACK_EXPIRY_SECONDS:
+            AWAITING_FEEDBACK.pop(chat_id, None)
+            send_message(
+                chat_id,
+                "O tempo para enviar o feedback expirou, mas obrigado pela confianÃ§a!",
+            )
+            return "ok", 200
+        fb_text = text.strip()
+        fb_lower = fb_text.lower()
+        is_command = fb_lower.startswith("/")
+        if not is_command and not looks_like_order(fb_text):
+            AWAITING_FEEDBACK.pop(chat_id, None)
+            order_id = fb_info.get("order_id")
+            score = None
+            m = re.search(r"\b([1-5])\b", fb_lower)
+            if m:
+                score = int(m.group(1))
+            try:
+                STORE.update(order_id, {"feedback": fb_text, "feedback_score": score})
+            except Exception as error:
+                print(f"[feedback] falha ao gravar feedback do pedido {order_id}: {error}")
+            owner_chat = load_env_key("TELEGRAM_OWNER_CHAT_ID")
+            if owner_chat:
+                score_part = f" (nota {score}/5)" if score else ""
+                send_message(
+                    owner_chat,
+                    f"⭐ FEEDBACK do pedido {order_id}:\n\"{fb_text}\"{score_part}",
+                )
+            send_message(chat_id, "Obrigado pelo feedback! Sua opiniÃ£o ajuda a melhorar.")
+            return "ok", 200
 
     if chat_type == "private" and looks_like_order(text):
         entry = build_order(chat_id, username, text)
@@ -730,7 +892,7 @@ def webhook():
                     "player": player,
                     "ts": time.time(),
                 }
-                send_message(chat_id, "\n".join(linhas))
+                send_message(chat_id, "\n".join(linhas), reply_markup=CONFIRM_KEYBOARD)
                 return "ok", 200
             if status == "erro":
                 linhas = [
@@ -749,7 +911,7 @@ def webhook():
                     "player": {},
                     "ts": time.time(),
                 }
-                send_message(chat_id, "\n".join(linhas))
+                send_message(chat_id, "\n".join(linhas), reply_markup=CONFIRM_KEYBOARD)
                 return "ok", 200
 
         entry = save_order(entry)
@@ -1281,4 +1443,7 @@ if __name__ == "__main__":
     if len(sys.argv) > 1 and sys.argv[1] == "--set-webhook":
         set_webhook(sys.argv[2] if len(sys.argv) > 2 else f"http://localhost:{port}/webhook")
     else:
+        import threading
+
+        threading.Thread(target=_relatorio_automatico, daemon=True).start()
         app.run(host="0.0.0.0", port=port)

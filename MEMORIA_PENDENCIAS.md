@@ -44,8 +44,12 @@ Atualizar sempre que algo mudar de estado.
     RubiNot 403 a partir do Render (IP de datacenter bloqueado) -> fallback
     manual implementado. Pendente: publicar app Google, revisar manual.txt
     e decidir se contata staff do RubiNot para liberar acesso API.
-      Google Login, área do cliente `/cliente`, área admin `/admin`, webhook
-      protegido por `TELEGRAM_WEBHOOK_SECRET`.
+
+- [ ] **Testar ao vivo v1.14.0** — aplicar `supabase_migracao_v114.sql` no SQL Editor
+    do Supabase (colunas `feedback` e `feedback_score` na tabela `pedidos`);
+    depois testar via POST artesanal com secret: (1) botoes inline SIM/NAO e menu
+    [Comprar RC] [/preco] [/vendedor] no /start, (2) fluxo de feedback apos
+    /entregue, (3) comando /relatorio (dono).
 
 ## Concluído (manter como histórico; reabrir se voltar a aparecer)
 
