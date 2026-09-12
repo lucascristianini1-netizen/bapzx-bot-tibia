@@ -35,6 +35,14 @@ Atualizar sempre que algo mudar de estado.
       grava certo; falta confirmar a qualidade da resposta no chat, pois o
       Google Login mudou o fluxo).
 - [ ] Revisar `manual.txt` (raiz de MEUS PROJETOS) com os recursos novos:
+    Google Login, `/cliente`, `/admin`, `TELEGRAM_WEBHOOK_SECRET`, e agora o fluxo de
+    confirmação do personagem via RubiNot (v1.12.0). Tema do ROS (roleta) também
+    se aplicável.
+
+- [ ] **Deploy da v1.12.0 no Render + teste ao vivo** — validar fluxo com
+    confirmação de personagem via Telegram com personagem real; verificar se a API
+    do RubiNot responde normalmente no Render (timeout 12s). Toggle
+    `RUBINOT_VALIDATE=1` na env do Render (já é default; não precisa forçar).
       Google Login, área do cliente `/cliente`, área admin `/admin`, webhook
       protegido por `TELEGRAM_WEBHOOK_SECRET`.
 

@@ -14,7 +14,7 @@ from flask import Flask, request, redirect, session
 
 from storage import OrderStore
 
-VERSION = "1.11.3"
+VERSION = "1.12.0"
 
 BRAND = "BAPZX"
 STORE = "RUBINI COINS"
@@ -71,9 +71,14 @@ ADMIN_EMAILS = set(
     if e.strip()
 )
 AWAITING_EMAIL = {}
+AWAITING_CHAR = {}
 EMAIL_RE = re.compile(r"^[\w.+-]+@[\w-]+\.[\w.-]+$")
 CHAT_HISTORY = {}
 EMAIL_EXPIRY_SECONDS = 30 * 60
+CHAR_EXPIRY_SECONDS = 15 * 60
+RUBINOT_CHAR_URL = "https://rubinot.com.br/api/characters/search"
+RUBINOT_VALIDATE = (load_env_key("RUBINOT_VALIDATE") or "1").lower() not in ("0", "false", "no", "off")
+CHAR_YES_WORDS = {"sim", "confirmo", "confirmar", "pode", "pode confirmar", "ok", "isso", "afirmativo", "yes", "ss"}
 CHAR_STOP_WORDS = {
     "mundo", "world", "pagamento", "pix", "via", "em", "na", "no", "com",
     "para", "pra", "e", "vou", "quero", "trade", "email", "e-mail", "depois",
@@ -265,6 +270,28 @@ def build_order(chat_id, username, text):
 
 def save_order(entry):
     return STORE.save(entry)
+
+
+def rubinot_char_info(nome):
+    try:
+        response = requests.get(
+            RUBINOT_CHAR_URL,
+            params={"name": nome},
+            headers={"User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/128.0 Safari/537.36"},
+            timeout=12,
+        )
+        if response.status_code == 200:
+            data = response.json()
+            player = data.get("player") or {}
+            if player and player.get("name"):
+                return player, "ok"
+            return None, "nao_encontrado"
+        if response.status_code == 404:
+            return None, "nao_encontrado"
+        return None, "erro"
+    except Exception as error:
+        print(f"[rubinot] erro ao consultar char '{nome}': {error}")
+        return None, "erro"
 
 
 def payment_text(entry):
@@ -602,8 +629,88 @@ def webhook():
             notify_owner_pix(result, order)
         return "ok", 200
 
+    if chat_type == "private" and chat_id in AWAITING_CHAR:
+        pending = AWAITING_CHAR.get(chat_id) or {}
+        expired = bool(pending) and time.time() - pending.get("ts", 0) > CHAR_EXPIRY_SECONDS
+        if expired:
+            AWAITING_CHAR.pop(chat_id, None)
+            send_message(
+                chat_id,
+                "O tempo para confirmar o personagem expirou. FaÃ§a um novo pedido ou use /vendedor.",
+            )
+            return "ok", 200
+        confirmacao = text.strip().lower().rstrip(".!")
+        if confirmacao in CHAR_YES_WORDS:
+            AWAITING_CHAR.pop(chat_id, None)
+            entry = pending.get("entry") or {}
+            player = pending.get("player") or {}
+            if player.get("name"):
+                entry["char"] = player["name"]
+            if player.get("world"):
+                entry["mundo"] = player["world"]
+            entry = save_order(entry)
+            notify_owner(entry)
+            push_to_sheet(entry)
+            if MP_ACCESS_TOKEN and entry.get("id"):
+                AWAITING_EMAIL[chat_id] = {"order_id": entry["id"], "ts": time.time()}
+                send_message(
+                    chat_id,
+                    "Pedido registrado! JÃ¡ calculei o valor. Para gerar seu QR Code do Pix, "
+                    "me responda com o seu e-mail (ex.: nome@exemplo.com).",
+                )
+                return "ok", 200
+            notify_payment(entry)
+            return "ok", 200
+        AWAITING_CHAR.pop(chat_id, None)
+        send_message(
+            chat_id,
+            "Sem problemas! Pedido cancelado. Quando quiser, Ã© sÃ³ me mandar de novo "
+            "os dados certos ou usar /start.",
+        )
+        return "ok", 200
+
     if chat_type == "private" and looks_like_order(text):
         entry = build_order(chat_id, username, text)
+        if entry.get("char") and RUBINOT_VALIDATE:
+            player, status = rubinot_char_info(entry["char"])
+            if status == "nao_encontrado":
+                send_message(
+                    chat_id,
+                    f"NÃ£o encontrei o personagem {entry['char']} no RubiNot. "
+                    "Confere o nome e tenta de novo?",
+                )
+                return "ok", 200
+            if status == "ok" and player:
+                nome = player.get("name") or entry["char"]
+                nivel = player.get("level")
+                vocacao = player.get("vocation")
+                mundo = player.get("world")
+                linhas = [
+                    f"Encontrei o personagem no RubiNot: {nome}",
+                ]
+                if nivel:
+                    linhas.append(f"  Level: {nivel}")
+                if vocacao:
+                    linhas.append(f"  VocaÃ§Ã£o: {vocacao}")
+                if mundo:
+                    linhas.append(f"  Mundo: {mundo}")
+                if entry.get("mundo") and mundo and entry["mundo"].lower() != mundo.lower():
+                    linhas.append("")
+                    linhas.append(
+                        f"VocÃª informou o mundo {entry['mundo']}, mas o personagem "
+                        f"estÃ¡ no mundo {mundo}. Confirmar mesmo assim? (sim / nÃ£o)"
+                    )
+                else:
+                    linhas.append("")
+                    linhas.append("Confirma esse personagem para o pedido? (sim / nÃ£o)")
+                AWAITING_CHAR[chat_id] = {
+                    "entry": dict(entry),
+                    "player": player,
+                    "ts": time.time(),
+                }
+                send_message(chat_id, "\n".join(linhas))
+                return "ok", 200
+
         entry = save_order(entry)
         notify_owner(entry)
         push_to_sheet(entry)
