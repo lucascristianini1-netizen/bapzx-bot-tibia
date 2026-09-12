@@ -743,10 +743,7 @@ def webhook():
                 if entry.get("preco"):
                     linhas.append(f"  Valor: {entry['preco']}")
                 linhas.append("")
-                linhas.append(
-                    "Nao deu pra conferir no site do RubiNot agora, mas ao "
-                    "confirmar, os dados acima passam a valer. (sim / nao)"
-                )
+                linhas.append("Confere os dados acima? Responda SIM ou NÃO.")
                 AWAITING_CHAR[chat_id] = {
                     "entry": dict(entry),
                     "player": {},
